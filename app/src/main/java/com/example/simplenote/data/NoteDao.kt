@@ -39,8 +39,8 @@ interface NoteDao {
     suspend fun delete(note: Note)
 
     @Query("SELECT * from notes WHERE id = :id")
-    fun getItem(id: Int): Flow<Note>
+    fun getNote(id: Int): Flow<Note>
 
     @Query("SELECT * from notes ORDER BY id ASC")
-    fun getAllItems(): Flow<List<Note>>
+    fun getAllNotes(): Flow<List<Note>>
 }
