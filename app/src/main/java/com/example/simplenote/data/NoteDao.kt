@@ -25,6 +25,9 @@ interface NotebookDao {
 
     @Query("SELECT * from notebooks ORDER BY id ASC")
     fun getAllItems(): Flow<List<Notebook>>
+
+    @Query("SELECT * FROM notebooks")
+    fun getNotebooksWithNotes(): Flow<List<NotebookWithNotes>>
 }
 
 @Dao

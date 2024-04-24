@@ -1,6 +1,8 @@
 package com.example.simplenote.data
 
+import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 
@@ -12,13 +14,7 @@ data class Notebook(
     val id: Long,
     val name: String,
     val noteNum: Int // 包含的note条目数量
-) {
-//    @Relation(
-//        parentColumn = "id",
-//        entityColumn = "notebookId"
-//    )
-//    var notes: List<Note>? = null // 笔记列表，通过关联查询获取
-}
+)
 
 // 笔记条目，对应一段文字/一张图片 等等
 @Entity(tableName = "notes")
@@ -28,6 +24,15 @@ data class Note(
     val notebookId: Long,
     val content: String,
     val type: NoteType?
+)
+
+data class NotebookWithNotes(
+    @Embedded val notebook: Notebook,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "notebookId"
+    )
+    val notes: List<Note>
 )
 
 // 规定一个Note条目的类型

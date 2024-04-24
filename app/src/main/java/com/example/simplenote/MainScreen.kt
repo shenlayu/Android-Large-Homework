@@ -1,5 +1,6 @@
 package com.example.simplenote
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBeha
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,13 +66,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.simplenote.ui.AppViewModelProvider
+import com.example.simplenote.ui.note.NoteViewModel
 import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    viewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var showMenu by rememberSaveable { mutableStateOf(false) }
     var showSyncCard by rememberSaveable { mutableStateOf(true) }
@@ -201,6 +208,15 @@ fun MainScreen() {
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
         ) {
+            val coroutineScope = rememberCoroutineScope()
+            val homeUiState by viewModel.homeUiState.collectAsState()
+
+            Button(onClick = {
+                val notebookList = homeUiState.notebookList
+                Log.d("testtest", "${notebookList[0].notes[0].id}")
+                }) {
+            }
+
             if (showSyncCard) {
                 SpecialSyncCard(
                     onIgnore = { showSyncCard = false },

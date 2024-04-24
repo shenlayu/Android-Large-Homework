@@ -4,13 +4,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.simplenote.data.Note
 import com.example.simplenote.data.NoteType
 import com.example.simplenote.data.Notebook
+import com.example.simplenote.data.NotebookWithNotes
 import com.example.simplenote.data.NotebooksRepository
+import com.example.simplenote.data.NotesRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 // 传递封装好的接口
-class NoteViewModel(private val notebooksRepository: NotebooksRepository) : ViewModel() {
+class NoteViewModel(
+    private val notebooksRepository: NotebooksRepository,
+    private val notesRepository: NotesRepository
+) : ViewModel() {
     // 保存notebook状态
     var notebookUiState by mutableStateOf(NotebookUiState())
         private set
@@ -33,7 +44,6 @@ class NoteViewModel(private val notebooksRepository: NotebooksRepository) : View
         }
     }
 
-
     // 新建一个Text类型的Note并将其添加到Notebook的List<Note>中
     fun CreatAndSaveText(text: String = "") {
         var noteUiState by mutableStateOf(NotebookUiState())
@@ -41,7 +51,22 @@ class NoteViewModel(private val notebooksRepository: NotebooksRepository) : View
     fun CreatAndSavePhoto() {
 
     }
+
+    val homeUiState: StateFlow<HomeUiState_> =
+        notebooksRepository.getNotebooksWithNotes().map { HomeUiState_(it) }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
+                initialValue = HomeUiState_()
+            )
+    companion object {
+        private const val TIMEOUT_MILLIS = 5_000L
+    }
 }
+
+data class HomeUiState_(
+    val notebookList: List<NotebookWithNotes> = listOf()
+)
 
 // notebook界面
 data class NotebookUiState(

@@ -4,7 +4,7 @@ import android.app.Application
 import com.example.simplenote.data.AppContainer
 import com.example.simplenote.data.AppDataContainer
 
-class NoteApplication : Application() {
+class NoteApplication : Application(){
 
     /**
      * AppContainer instance used by the rest of classes to obtain dependencies
