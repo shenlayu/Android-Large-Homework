@@ -52,6 +52,7 @@ import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBeha
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,13 +70,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
-import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    //viewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var showMenu by rememberSaveable { mutableStateOf(false) }
     var showSyncCard by rememberSaveable { mutableStateOf(true) }
@@ -306,6 +309,24 @@ fun MainScreen() {
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
         ) {
+//            Row() {
+//                val coroutineScope = rememberCoroutineScope()
+//                var idx: Int = 1
+//                Button(onClick = {
+//                    viewModel.init(1, "name")
+//                }) {
+//                }
+//                Button(onClick = {
+//                    viewModel.addText("halo${idx++}")
+//                }) {
+//                }
+//                Button(onClick = {
+//                    coroutineScope.launch {
+//                        viewModel.saveNotebook()
+//                    }
+//                }) {
+//                }
+            // }
             if (showSyncCard) {
                 SpecialSyncCard(
                     onIgnore = { showSyncCard = false },

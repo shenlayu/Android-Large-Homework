@@ -10,9 +10,35 @@ import kotlinx.coroutines.flow.Flow
 
 // 提供对数据库操作的方法接口 Data Access Object
 @Dao
-interface NotebookDao {
+interface UserDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) // 如果确定不会发生冲突，那么可以无视冲突
-    suspend fun insert(notebook: Notebook) // suspend可以使操作在单独的线程上运行
+    suspend fun insert(user: User) // suspend可以使操作在单独的线程上运行
+    @Update
+    suspend fun update(user: User)
+    @Delete
+    suspend fun delete(user: User)
+    @Query("SELECT * from users WHERE username = :username")
+    fun searchUser(username: String): Flow<User> // 检查user
+    @Query("SELECT * FROM users WHERE id = :id")
+    fun getNotebookWithNotes(id : Int): Flow<UserWithDirectories>
+}
+
+@Dao
+interface DirectoryDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(directory: Directory)
+    @Update
+    suspend fun update(directory: Directory)
+    @Delete
+    suspend fun delete(directory: Directory)
+    @Query("SELECT * from notes WHERE id = :id")
+    fun getDirectory(id: Int): Flow<Directory>
+}
+
+@Dao
+interface NotebookDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(notebook: Notebook)
 
     @Update
     suspend fun update(notebook: Notebook)
@@ -25,6 +51,12 @@ interface NotebookDao {
 
     @Query("SELECT * from notebooks ORDER BY id ASC")
     fun getAllItems(): Flow<List<Notebook>>
+
+    @Query("SELECT * FROM notebooks WHERE id = :id")
+    fun getNotebookWithNotes(id : Int): Flow<NotebookWithNotes>
+
+    @Query("SELECT * FROM notebooks")
+    fun getAllNotebooksWithNotes(): Flow<List<NotebookWithNotes>>
 }
 
 @Dao
