@@ -7,15 +7,15 @@ class OfflineUsersRepository(private val userDao: UserDao) : UsersRepository {
     override suspend fun insertUser(user: User) = userDao.insert(user)
     override suspend fun deleteUser(user: User) = userDao.delete(user)
     override suspend fun updateUser(user: User) = userDao.update(user)
-    override fun searchUserExisting(username: String) = userDao.searchUserExisting(username)
+    override fun searchUser(username: String) = userDao.searchUser(username)
+    override fun getNotebookWithNotes(id : Int) = userDao.getNotebookWithNotes(id)
 }
 
 class OfflineDirectoriesRepository(private val directoryDao: DirectoryDao) : DirectoriesRepository {
     override suspend fun insertDirectory(directory: Directory) = directoryDao.insert(directory)
-
     override suspend fun deleteDirectory(directory: Directory) = directoryDao.delete(directory)
-
     override suspend fun updateDirectory(directory: Directory) = directoryDao.update(directory)
+    override fun getDirectory(id: Int) = directoryDao.getDirectory(id)
 }
 
 class OfflineNotebooksRepository(private val notebookDao: NotebookDao) : NotebooksRepository {

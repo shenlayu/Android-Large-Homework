@@ -105,13 +105,6 @@ data class NotebookState(
 )
 
 
-// directory细节
-data class DirectoryDetails(
-    var id: Int,
-    var name: String,
-    var notebookNum: Int,
-    var userId: Int
-)
 // notebook细节
 data class NotebookDetails(
     var id: Int = 0,
@@ -128,18 +121,7 @@ data class NoteDetails(
 )
 
 
-fun DirectoryDetails.toDirectory(): Directory = Directory(
-    id = id,
-    name = name,
-    notebookNum = notebookNum,
-    userId = userId
-)
-fun Directory.toDirectoryDetails(): DirectoryDetails = DirectoryDetails(
-    id = id,
-    name = name,
-    notebookNum = notebookNum,
-    userId = userId
-)
+
 fun NotebookDetails.toNotebook(): Notebook = Notebook(
     id = id,
     name = name,

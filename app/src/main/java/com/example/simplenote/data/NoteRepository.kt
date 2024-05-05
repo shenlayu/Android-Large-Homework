@@ -9,15 +9,15 @@ interface UsersRepository {
     suspend fun insertUser(user: User)
     suspend fun updateUser(user: User)
     suspend fun deleteUser(user: User)
-    fun searchUserExisting(username: String): Flow<User>
+    fun searchUser(username: String): Flow<User>
+    fun getNotebookWithNotes(id : Int): Flow<UserWithDirectories>
 }
 
 interface DirectoriesRepository {
     suspend fun insertDirectory(directory: Directory)
-
     suspend fun updateDirectory(directory: Directory)
-
     suspend fun deleteDirectory(directory: Directory)
+    fun getDirectory(id: Int): Flow<Directory>
 }
 
 interface NotebooksRepository {

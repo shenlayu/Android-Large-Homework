@@ -18,19 +18,21 @@ interface UserDao {
     @Delete
     suspend fun delete(user: User)
     @Query("SELECT * from users WHERE username = :username")
-    fun searchUserExisting(username: String): Flow<User> // 检查user是否存在
+    fun searchUser(username: String): Flow<User> // 检查user
+    @Query("SELECT * FROM users WHERE id = :id")
+    fun getNotebookWithNotes(id : Int): Flow<UserWithDirectories>
 }
 
 @Dao
 interface DirectoryDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(directory: Directory)
-
     @Update
     suspend fun update(directory: Directory)
-
     @Delete
     suspend fun delete(directory: Directory)
+    @Query("SELECT * from notes WHERE id = :id")
+    fun getDirectory(id: Int): Flow<Directory>
 }
 
 @Dao
