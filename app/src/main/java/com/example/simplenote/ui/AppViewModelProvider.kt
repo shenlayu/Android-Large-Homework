@@ -7,21 +7,33 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.simplenote.NoteApplication
 import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.UserViewModel
 
 object AppViewModelProvider {
     val Factory = viewModelFactory {
         // Initializer for [NoteViewModel]
+//        initializer {
+//            NoteViewModel(
+//                noteApplication().container.notebooksRepository,
+//                noteApplication().container.notesRepository
+//                )
+//        }
+//        // Initializer for [HomeViewModel]
+//        initializer {
+//            DirectoryViewModel(
+//                noteApplication().container.notebooksRepository,
+//                noteApplication().container.notesRepository
+//            )
+//        }
         initializer {
-            NoteViewModel(
-                noteApplication().container.notebooksRepository,
-                noteApplication().container.notesRepository
-                )
+            UserViewModel(
+                noteApplication().container.usersRepository,
+            )
         }
-        // Initializer for [HomeViewModel]
         initializer {
             DirectoryViewModel(
-                noteApplication().container.notebooksRepository,
-                noteApplication().container.notesRepository
+                noteApplication().container.usersRepository,
+                noteApplication().container.directoriesRepository
             )
         }
     }

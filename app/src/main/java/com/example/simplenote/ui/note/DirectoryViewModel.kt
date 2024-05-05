@@ -15,9 +15,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 class DirectoryViewModel(
-    private val directoriesRepository: DirectoriesRepository,
     private val usersRepository: UsersRepository,
-    val userID: Int
+    private val directoriesRepository: DirectoriesRepository,
+    val userID: Int = 0
 ): ViewModel() {
     val userState: StateFlow<UserState> =
         usersRepository.getNotebookWithNotes(userID).map { UserState(it) }
