@@ -31,7 +31,7 @@ interface DirectoryDao {
     suspend fun update(directory: Directory)
     @Delete
     suspend fun delete(directory: Directory)
-    @Query("SELECT * from notes WHERE id = :id")
+    @Query("SELECT * from directories WHERE id = :id")
     fun getDirectory(id: Int): Flow<Directory>
 }
 
