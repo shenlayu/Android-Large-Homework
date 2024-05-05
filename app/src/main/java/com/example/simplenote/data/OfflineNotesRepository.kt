@@ -3,12 +3,29 @@ package com.example.simplenote.data
 import kotlinx.coroutines.flow.Flow
 
 // 将Dao的接口赋值给暴露给用户的接口
+class OfflineUsersRepository(private val userDao: UserDao) : UsersRepository {
+    override suspend fun insertUser(user: User) = userDao.insert(user)
+    override suspend fun deleteUser(user: User) = userDao.delete(user)
+    override suspend fun updateUser(user: User) = userDao.update(user)
+    override fun searchUserExisting(username: String) = userDao.searchUserExisting(username)
+}
+
+class OfflineDirectoriesRepository(private val directoryDao: DirectoryDao) : DirectoriesRepository {
+    override suspend fun insertDirectory(directory: Directory) = directoryDao.insert(directory)
+
+    override suspend fun deleteDirectory(directory: Directory) = directoryDao.delete(directory)
+
+    override suspend fun updateDirectory(directory: Directory) = directoryDao.update(directory)
+}
+
 class OfflineNotebooksRepository(private val notebookDao: NotebookDao) : NotebooksRepository {
     override fun getAllNotebooksStream() = notebookDao.getAllItems()
 
     override fun getNotebookStream(id: Int) = notebookDao.getItem(id)
 
-    override fun getNotebooksWithNotes() = notebookDao.getNotebooksWithNotes()
+    override fun getNotebookWithNotes(id: Int) = notebookDao.getNotebookWithNotes(id)
+
+    override fun getAllNotebooksWithNotes() = notebookDao.getAllNotebooksWithNotes()
 
     override suspend fun insertNotebook(notebook: Notebook) = notebookDao.insert(notebook)
 

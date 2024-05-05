@@ -208,15 +208,24 @@ fun MainScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
         ) {
-            val coroutineScope = rememberCoroutineScope()
-            val homeUiState by viewModel.homeUiState.collectAsState()
-
-            Button(onClick = {
-                val notebookList = homeUiState.notebookList
-                Log.d("testtest", "${notebookList[0].notes[0].id}")
+            Row() {
+                val coroutineScope = rememberCoroutineScope()
+                var idx: Int = 1
+                Button(onClick = {
+                    viewModel.init(1, "name")
                 }) {
+                }
+                Button(onClick = {
+                    viewModel.addText("halo${idx++}")
+                }) {
+                }
+                Button(onClick = {
+                    coroutineScope.launch {
+                        viewModel.saveNotebook()
+                    }
+                }) {
+                }
             }
-
             if (showSyncCard) {
                 SpecialSyncCard(
                     onIgnore = { showSyncCard = false },
