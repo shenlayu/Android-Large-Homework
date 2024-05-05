@@ -454,7 +454,7 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
         Image(
             painter = rememberAsyncImagePainter(imageItem.imageUri),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
             modifier = Modifier
                 .height(300.dp)
                 .align(Alignment.CenterHorizontally)
