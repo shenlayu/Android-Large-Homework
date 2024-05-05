@@ -1,8 +1,41 @@
 package com.example.simplenote.data
 
+import androidx.room.Delete
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 // 映射Dao的接口，将对database对操作封装为对用户的接口
+interface UsersRepository {
+    suspend fun insertUser(user: User)
+    suspend fun updateUser(user: User)
+    suspend fun deleteUser(user: User)
+    fun searchUser(username: String): Flow<User>
+    fun getNotebookWithNotes(id : Int): Flow<UserWithDirectories>
+}
+
+interface DirectoriesRepository {
+    suspend fun insertDirectory(directory: Directory)
+    suspend fun updateDirectory(directory: Directory)
+    suspend fun deleteDirectory(directory: Directory)
+    fun getDirectory(id: Int): Flow<Directory>
+}
+
+interface NotebooksRepository {
+    fun getAllNotebooksStream(): Flow<List<Notebook>>
+
+    fun getNotebookStream(id: Int): Flow<Notebook?>
+
+    fun getNotebookWithNotes(id: Int): Flow<NotebookWithNotes>
+
+    fun getAllNotebooksWithNotes(): Flow<List<NotebookWithNotes>>
+
+    suspend fun insertNotebook(notebook: Notebook)
+
+    suspend fun deleteNotebook(notebook: Notebook)
+
+    suspend fun updateNotebook(notebook: Notebook)
+}
+
 interface NotesRepository {
     fun getAllNotesStream(): Flow<List<Note>>
 
@@ -13,16 +46,4 @@ interface NotesRepository {
     suspend fun deleteNote(note: Note)
 
     suspend fun updateNote(note: Note)
-}
-
-interface NotebooksRepository {
-    fun getAllNotebooksStream(): Flow<List<Notebook>>
-
-    fun getNotebookStream(id: Int): Flow<Notebook?>
-
-    suspend fun insertNotebook(notebook: Notebook)
-
-    suspend fun deleteNotebook(notebook: Notebook)
-
-    suspend fun updateNotebook(notebook: Notebook)
 }

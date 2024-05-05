@@ -8,6 +8,8 @@ import androidx.room.RoomDatabase
 // 创建一个数据库
 @Database(entities = [Notebook::class, Note::class], version = 1, exportSchema = false)
 abstract class NoteDatabase: RoomDatabase() {
+    abstract fun userDao(): UserDao
+    abstract fun directoryDao(): DirectoryDao
     abstract fun notebookDao(): NotebookDao
     abstract fun noteDao(): NoteDao
 
