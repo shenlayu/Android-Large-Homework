@@ -1,10 +1,15 @@
 package com.example.simplenote
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.TextField
 import androidx.compose.ui.platform.LocalContext
@@ -56,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusModifier
@@ -82,6 +88,7 @@ import java.util.Date
 import java.util.Locale
 
 // 为浏览编辑界面临时创建的数据类，文字类、图片类、音频类
+
 sealed class ContentItem {
     data class TextItem(
         var text: MutableState<TextFieldValue>,
@@ -93,22 +100,28 @@ sealed class ContentItem {
     data class AudioItem(val audioUri: Uri) : ContentItem()
 }
 
+val sampleTitleItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
+val sampleTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
+
+val contentItems = mutableStateOf(mutableListOf<ContentItem>(sampleTitleItem, sampleTextItem))
+
 
 // 预览编辑界面
 @Preview
 @Composable
 fun PreviewEditorScreen() {
-    val sampleTitleItem = remember {
-        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
-    }
-    val sampleTextItem = remember {
-        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
-    }
 
-    val contentItems = remember { mutableStateOf(mutableListOf<ContentItem>(
-        sampleTitleItem, sampleTextItem
-    )) }
-
+//    val sampleTitleItem = rememberSaveable {
+//        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
+//    }
+//    val sampleTextItem = rememberSaveable {
+//        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
+//    }
+//
+//    val contentItems = rememberSaveable { mutableStateOf(mutableListOf<ContentItem>(
+//        sampleTitleItem, sampleTextItem
+//    )) }
+//
     EditorScreen(contentItems = contentItems)
 }
 
@@ -246,6 +259,7 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
 //    val focusRequester = remember {
 //        FocusRequester()
 //    }
+
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
                 val items = contentItems.value.toMutableList()
@@ -404,66 +418,94 @@ fun deleteContentItem(contentItems: MutableState<MutableList<ContentItem>>, inde
 @Composable
 fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
     val showOptions = remember { mutableStateOf(false) }
-    val configuration = LocalConfiguration.current
+    val context = LocalContext.current
+    val scale = animateFloatAsState(targetValue = if (showOptions.value) 0.95f else 1f)
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = Color.Transparent)
-    ) {
-        if (showOptions.value) {
-            ItemOptionsBar(
-                onCut = { /* Implement cut logic */ },
-                onCopy = { /* Implement copy logic */ },
-                onDelete = {
-                    showOptions.value = false
-                    val items = contentItems.value.toMutableList()
-                    if (index in items.indices) {
-                        val currentItem = items[index]
-                        val prevIndex = index - 1
-                        val nextIndex = index + 1
+    // 震动效果实现
+    fun triggerVibration() {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        val vibrator = vibratorManager.defaultVibrator
 
-                        when (currentItem) {
-                            is ContentItem.ImageItem, is ContentItem.AudioItem -> {
-                                val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
-                                val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
-
-                                if (prevItem != null && nextItem != null) {
-                                    // 将下一个文本合并到前一个文本中
-                                    prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
-                                    items.removeAt(nextIndex)
-                                } else if (nextItem != null) {
-                                    // 如果没有前一个文本项目，将下一个项目上移
-                                    items[prevIndex + 1] = nextItem
-                                }
-                                items.removeAt(index)
-                            }
-                            else -> return@ItemOptionsBar
-                        }
-
-                        // 确保总是至少有一个TextItem
-                        if (items.none { it is ContentItem.TextItem }) {
-                            items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
-                        }
-
-                        contentItems.value = items
+        if (vibrator.hasVibrator()) {
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+    }
+    // 使用Box包裹原有的Column，以便于处理点击外部区域隐藏ItemOptionsBar的逻辑
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .background(color = Color.Transparent)
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onPress = { // 检测到按压事件
+                    // 如果ItemOptionsBar显示，尝试将其隐藏
+                    if (showOptions.value) {
+                        showOptions.value = false
+                        // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
+                        awaitRelease()
                     }
                 }
             )
         }
-        Image(
-            painter = rememberAsyncImagePainter(imageItem.imageUri),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .height(300.dp)
-                .align(Alignment.CenterHorizontally)
-                .pointerInput(Unit) {
-                    detectTapGestures(onLongPress = { showOptions.value = !showOptions.value })
-                }
-        )
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (showOptions.value) {
+                ItemOptionsBar(
+                    onCut = { /* Implement cut logic */ },
+                    onCopy = { /* Implement copy logic */ },
+                    onDelete = {
+                        showOptions.value = false
+                        val items = contentItems.value.toMutableList()
+                        if (index in items.indices) {
+                            val currentItem = items[index]
+                            val prevIndex = index - 1
+                            val nextIndex = index + 1
+
+                            when (currentItem) {
+                                is ContentItem.ImageItem, is ContentItem.AudioItem -> {
+                                    val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
+                                    val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
+
+                                    if (prevItem != null && nextItem != null) {
+                                        // 将下一个文本合并到前一个文本中
+                                        prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
+                                        items.removeAt(nextIndex)
+                                    } else if (nextItem != null) {
+                                        // 如果没有前一个文本项目，将下一个项目上移
+                                        items[prevIndex + 1] = nextItem
+                                    }
+                                    items.removeAt(index)
+                                }
+                                else -> return@ItemOptionsBar
+                            }
+
+                            // 确保总是至少有一个TextItem
+                            if (items.none { it is ContentItem.TextItem }) {
+                                items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
+                            }
+
+                            contentItems.value = items
+                        }
+                    }
+                )
+            }
+            Image(
+                painter = rememberAsyncImagePainter(imageItem.imageUri),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .height(300.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .scale(scale.value)  // 应用缩放动画
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = {
+                            triggerVibration()
+                            showOptions.value = !showOptions.value })
+                    }
+            )
+        }
     }
 }
+
 
 @Composable
 fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context) {
@@ -603,6 +645,7 @@ fun DisplayAudioItem(audioItem: ContentItem.AudioItem, context: Context, content
 @Composable
 fun EditTextItem(textItem: ContentItem.TextItem) {
 //    val focusRequester = remember { FocusRequester() }
+
     TextField(
         value = textItem.text.value,
         onValueChange = { newValue ->
