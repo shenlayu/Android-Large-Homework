@@ -69,6 +69,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
 import com.example.simplenote.ui.note.DirectoryViewModel
+import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
 
 import kotlinx.coroutines.launch
@@ -80,8 +81,11 @@ import kotlin.math.log
 fun MainScreen(
     directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
     notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
     logged: Boolean = false,
-    havingDirectory: Boolean = false
+    havingDirectory: Boolean = false,
+    navigateToEdit: ()->Unit = {},
+    navigateToMe: () -> Unit = {}
 ) {
     if(!logged) {
 

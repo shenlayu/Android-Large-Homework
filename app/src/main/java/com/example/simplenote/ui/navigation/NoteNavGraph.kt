@@ -15,8 +15,11 @@ import com.example.simplenote.R
 import com.example.simplenote.data.LoggedUser
 import com.example.simplenote.data.LoggedUserRepository
 import com.example.simplenote.ui.AppViewModelProvider
+import com.example.simplenote.ui.EditorScreen
 import com.example.simplenote.ui.MeScreen
+import com.example.simplenote.ui.contentItems
 import com.example.simplenote.ui.note.DirectoryViewModel
+import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.UserViewModel
 import kotlinx.coroutines.flow.firstOrNull
@@ -39,10 +42,12 @@ fun NoteNavHost(
     val userViewModel: UserViewModel =  viewModel(factory = AppViewModelProvider.Factory)
     val directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    val noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
     NavHost(
         navController = navController,
         startDestination = pages.Main.name,
     ) {
+        var savingLoggedUserID: Int? = null // 保存正在登录的用户
         // 预览笔记界面
         composable(route = pages.Main.name) {
             var loggedUser: LoggedUser? = null
@@ -54,21 +59,51 @@ fun NoteNavHost(
                     .firstOrNull()
             } // 获得登录用户
             loggedUser?.let { // 已登录
-                directoryViewModel.init(loggedUser!!.userId)
-                val defaultDirectory = directoryViewModel.directoryList.firstOrNull()
-                if(defaultDirectory != null) { // 该用户有directory
-                    notebookViewModel.init(defaultDirectory.id)
-                    MainScreen(
-                        directoryViewModel = directoryViewModel,
-                        notebookViewModel = notebookViewModel,
-                        logged = true,
-                        havingDirectory = true)
-                } else { // 该用户没有directory
-                    MainScreen(
-                        directoryViewModel = directoryViewModel,
-                        notebookViewModel = notebookViewModel,
-                        logged = true,
-                        havingDirectory = false)
+                if(loggedUser?.userId == savingLoggedUserID) { // 登录用户没有变化，不需要init
+                    val defaultDirectory = directoryViewModel.directoryList.firstOrNull()
+                    if(defaultDirectory != null) { // 该用户有directory
+                        MainScreen(
+                            directoryViewModel = directoryViewModel,
+                            notebookViewModel = notebookViewModel,
+                            noteViewModel = noteViewModel,
+                            logged = true,
+                            havingDirectory = true,
+                            navigateToEdit = { navController.navigate(pages.Edit.name) }
+                        )
+                    } else { // 该用户没有directory
+                        MainScreen(
+                            directoryViewModel = directoryViewModel,
+                            notebookViewModel = notebookViewModel,
+                            noteViewModel = noteViewModel,
+                            logged = true,
+                            havingDirectory = false,
+                            navigateToEdit = { navController.navigate(pages.Edit.name) }
+                        )
+                    }
+                } else { // 登录用户变了，需要init
+                    savingLoggedUserID = loggedUser?.userId
+                    directoryViewModel.init(loggedUser!!.userId)
+                    val defaultDirectory = directoryViewModel.directoryList.firstOrNull()
+                    if(defaultDirectory != null) { // 该用户有directory
+                        notebookViewModel.init(defaultDirectory.id)
+                        MainScreen(
+                            directoryViewModel = directoryViewModel,
+                            notebookViewModel = notebookViewModel,
+                            noteViewModel = noteViewModel,
+                            logged = true,
+                            havingDirectory = true,
+                            navigateToEdit = { navController.navigate(pages.Edit.name) }
+                        )
+                    } else { // 该用户没有directory
+                        MainScreen(
+                            directoryViewModel = directoryViewModel,
+                            notebookViewModel = notebookViewModel,
+                            noteViewModel = noteViewModel,
+                            logged = true,
+                            havingDirectory = false,
+                            navigateToEdit = { navController.navigate(pages.Edit.name) }
+                        )
+                    }
                 }
             } ?: run { // 未登录
                 MainScreen(logged = false)
@@ -76,7 +111,12 @@ fun NoteNavHost(
         }
         // 编辑笔记界面
         composable(route = pages.Edit.name) {
-
+            EditorScreen(
+                contentItems,
+                noteViewModel = noteViewModel,
+                navigateToMain = { navController.navigate(pages.Main.name) },
+                navigateBack = { navController.navigateUp() }
+            )
         }
         // 登录注册界面
         composable(route = pages.Me.name) {

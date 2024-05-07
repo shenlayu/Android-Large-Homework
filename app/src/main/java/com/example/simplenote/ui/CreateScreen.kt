@@ -66,9 +66,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.simplenote.R
+import com.example.simplenote.ui.note.NoteViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -114,7 +116,12 @@ fun PreviewEditorScreen() {
 
 
 @Composable
-fun EditorScreen(contentItems: MutableState<MutableList<ContentItem>>) {
+fun EditorScreen(
+    contentItems: MutableState<MutableList<ContentItem>>,
+    noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    navigateToMain: () -> Unit = {},
+    navigateBack: () -> Unit = {}
+) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val currentDate = remember { dateFormat.format(Date()) }
     // 改为直接计算字符串的长度，适用于中文字符的统计

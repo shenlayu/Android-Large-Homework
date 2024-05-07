@@ -40,6 +40,10 @@ class NotebookViewModel(
         }
         directoryID = directoryID_
     }
+    fun getNotebookList(list: MutableList<NotebookDetails>) {
+        list.clear()
+        list.addAll(notebookList)
+    }
     var sortType: SortType = SortType.Time
 
     private fun sortBySortType() {

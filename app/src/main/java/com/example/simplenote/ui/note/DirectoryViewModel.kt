@@ -20,9 +20,9 @@ class DirectoryViewModel(
     companion object {
         private const val TIMEOUT_MILLIS = 5_000L
     }
-    var userState: StateFlow<UserState>? = null
+    private var userState: StateFlow<UserState>? = null
     var directoryList = mutableListOf<DirectoryDetails>()
-    var userID: Int? = null
+    private var userID: Int? = null
     fun init(userID_: Int? = null) {
         userID_?.let {uid ->
             userState =
@@ -39,6 +39,10 @@ class DirectoryViewModel(
             directoryList.add(it.toDirectoryDetails())
         }
         userID = userID_
+    }
+    fun getDirectoryList(list: MutableList<DirectoryDetails>) {
+        list.clear()
+        list.addAll(directoryList)
     }
     var sortType: SortType = SortType.Time
 
