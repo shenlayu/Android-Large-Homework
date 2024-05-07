@@ -1,6 +1,8 @@
 package com.example.simplenote.data
 
 import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -18,32 +20,30 @@ interface DirectoriesRepository {
     suspend fun updateDirectory(directory: Directory)
     suspend fun deleteDirectory(directory: Directory)
     fun getDirectory(id: Int): Flow<Directory>
+    fun getDirectoryWithNotebooks(id: Int): Flow<DirectoryWithNotebooks>
 }
 
 interface NotebooksRepository {
     fun getAllNotebooksStream(): Flow<List<Notebook>>
-
     fun getNotebookStream(id: Int): Flow<Notebook?>
-
     fun getNotebookWithNotes(id: Int): Flow<NotebookWithNotes>
-
     fun getAllNotebooksWithNotes(): Flow<List<NotebookWithNotes>>
-
     suspend fun insertNotebook(notebook: Notebook)
-
     suspend fun deleteNotebook(notebook: Notebook)
-
     suspend fun updateNotebook(notebook: Notebook)
 }
 
 interface NotesRepository {
     fun getAllNotesStream(): Flow<List<Note>>
-
     fun getNoteStream(id: Int): Flow<Note?>
-
     suspend fun insertNote(note: Note)
-
     suspend fun deleteNote(note: Note)
-
     suspend fun updateNote(note: Note)
+}
+
+interface LoggedUserRepository {
+    suspend fun insertLoggedUser(loggedUser: LoggedUser)
+    suspend fun updateLoggedUser(loggedUser: LoggedUser)
+    suspend fun deleteLoggedUser(loggedUser: LoggedUser)
+    fun getLoggedUser(): Flow<List<LoggedUser>>
 }

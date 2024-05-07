@@ -33,28 +33,24 @@ interface DirectoryDao {
     suspend fun delete(directory: Directory)
     @Query("SELECT * from directories WHERE id = :id")
     fun getDirectory(id: Int): Flow<Directory>
+    @Query("SELECT * FROM directories WHERE id = :id")
+    fun getDirectoryWithNotebooks(id: Int): Flow<DirectoryWithNotebooks>
 }
 
 @Dao
 interface NotebookDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(notebook: Notebook)
-
     @Update
     suspend fun update(notebook: Notebook)
-
     @Delete
     suspend fun delete(notebook: Notebook)
-
     @Query("SELECT * from notebooks WHERE id = :id") // 由于返回值是flow, 会在后台运行该查询。无需suspend
     fun getItem(id: Int): Flow<Notebook>
-
     @Query("SELECT * from notebooks ORDER BY id ASC")
     fun getAllItems(): Flow<List<Notebook>>
-
     @Query("SELECT * FROM notebooks WHERE id = :id")
     fun getNotebookWithNotes(id : Int): Flow<NotebookWithNotes>
-
     @Query("SELECT * FROM notebooks")
     fun getAllNotebooksWithNotes(): Flow<List<NotebookWithNotes>>
 }
@@ -63,16 +59,24 @@ interface NotebookDao {
 interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(note: Note)
-
     @Update
     suspend fun update(note: Note)
-
     @Delete
     suspend fun delete(note: Note)
-
     @Query("SELECT * from notes WHERE id = :id")
     fun getNote(id: Int): Flow<Note>
-
     @Query("SELECT * from notes ORDER BY id ASC")
     fun getAllNotes(): Flow<List<Note>>
+}
+
+@Dao
+interface LoggedUserDao{
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(loggedUser: LoggedUser)
+    @Update
+    suspend fun update(loggedUser: LoggedUser)
+    @Delete
+    suspend fun delete(loggedUser: LoggedUser)
+    @Query("SELECT * from loggedUser ORDER BY id ASC")
+    fun getLoggedUser(): Flow<List<LoggedUser>>
 }

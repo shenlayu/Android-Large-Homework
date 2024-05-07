@@ -2,5 +2,7 @@
     <string name="app_name">SimpleNote</string>
     <string name="Edit">编辑</string>
     <string name="Main">预览</string>
-    <string name="back">a返回</string>
+    <string name="back">返回</string>
+    <string name="Me">我的</string>
+
 </resources>

@@ -7,6 +7,7 @@ interface AppContainer {
     val directoriesRepository: DirectoriesRepository
     val notebooksRepository: NotebooksRepository
     val notesRepository: NotesRepository
+    val loggedUserRepository: LoggedUserRepository
 }
 
 /**
@@ -28,5 +29,8 @@ class AppDataContainer(private val context: Context) : AppContainer {
     }
     override val notesRepository: NotesRepository by lazy {
         OfflineNotesRepository(NoteDatabase.getDatabase(context).noteDao())
+    }
+    override val loggedUserRepository: LoggedUserRepository by lazy {
+        OfflineLoggedUserRepository(NoteDatabase.getDatabase(context).loggedUserDao())
     }
 }

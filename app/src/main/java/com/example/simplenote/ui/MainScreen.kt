@@ -1,12 +1,10 @@
-package com.example.simplenote
+package com.example.simplenote.ui
 
-import android.text.Layout
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,7 +26,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -52,7 +49,6 @@ import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBeha
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,16 +65,30 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.simplenote.R
+import com.example.simplenote.ui.note.DirectoryViewModel
+import com.example.simplenote.ui.note.NotebookViewModel
 
 import kotlinx.coroutines.launch
+import kotlin.math.log
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun MainScreen(
-    //viewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    logged: Boolean = false,
+    havingDirectory: Boolean = false
 ) {
+    if(!logged) {
+
+    }
+    else if(!havingDirectory) {
+
+    }
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var showMenu by rememberSaveable { mutableStateOf(false) }
     var showSyncCard by rememberSaveable { mutableStateOf(true) }
@@ -495,7 +505,9 @@ fun BottomNavigationBar(selectedTab: Int, setSelectedTab: (Int) -> Unit, isSelec
 fun BottomSheetContent(onClose: () -> Unit, onCreateNotebook: () -> Unit, notebooks: List<String>) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically // 添加此行来确保垂直居中对齐
         ) {
             TextButton(onClick = onClose, modifier = Modifier.weight(1f)) {
@@ -567,7 +579,9 @@ fun CreateNotebookSheet(
             value = notebookName,
             onValueChange = { notebookName = it },
             label = { Text("笔记本名称") },
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         )
     }
 }
