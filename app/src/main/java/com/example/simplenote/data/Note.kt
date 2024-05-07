@@ -12,7 +12,6 @@ import androidx.room.Relation
 data class User(
     @PrimaryKey(autoGenerate = true)
     val id: Int,
-    val directoryNum: Int,
     val username: String,
     val password: String,
     val photo: String
@@ -24,8 +23,8 @@ data class Directory(
     @PrimaryKey(autoGenerate = true)
     val id: Int,
     val name: String,
-    val notebookNum: Int,
-    val userId: Int
+    val userId: Int,
+    val time: String // 创建时间
 )
 
 // 笔记本
@@ -34,8 +33,8 @@ data class Notebook(
     @PrimaryKey(autoGenerate = true) // 主键，递增ID以保证ID唯一
     val id: Int,
     val name: String,
-    val noteNum: Int, // 包含的note条目数量
-    val directoryId: Int // 所在的文件夹编号
+    val directoryId: Int, // 所在的文件夹编号
+    val time: String
 )
 
 // 笔记条目，对应一段文字/一张图片 等等
@@ -45,7 +44,15 @@ data class Note(
     val id: Int,
     val content: String,
     val type: NoteType?,
-    val notebookId: Int
+    val notebookId: Int,
+    val order: Int
+)
+
+@Entity(tableName = "loggedUser")
+data class LoggedUser(
+    @PrimaryKey(autoGenerate = true)
+    val id: Int,
+    val userId: Int
 )
 
 // 用户与文件夹之间的对应
@@ -79,5 +86,6 @@ data class NotebookWithNotes(
 // 规定一个Note条目的类型
 enum class NoteType {
     Text,
-    Photo
+    Photo,
+    Audio
 }

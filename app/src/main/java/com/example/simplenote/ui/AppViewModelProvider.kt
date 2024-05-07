@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.simplenote.NoteApplication
 import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.UserViewModel
 
 object AppViewModelProvider {
@@ -28,12 +29,25 @@ object AppViewModelProvider {
         initializer {
             UserViewModel(
                 noteApplication().container.usersRepository,
+                noteApplication().container.loggedUserRepository
             )
         }
         initializer {
             DirectoryViewModel(
                 noteApplication().container.usersRepository,
                 noteApplication().container.directoriesRepository
+            )
+        }
+        initializer {
+            NotebookViewModel(
+                noteApplication().container.directoriesRepository,
+                noteApplication().container.notebooksRepository
+            )
+        }
+        initializer {
+            NoteViewModel(
+                noteApplication().container.notebooksRepository,
+                noteApplication().container.notesRepository
             )
         }
     }
