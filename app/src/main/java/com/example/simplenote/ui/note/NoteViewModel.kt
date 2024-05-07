@@ -20,10 +20,10 @@ class NoteViewModel(
     companion object {
         private const val TIMEOUT_MILLIS = 5_000L
     }
-    var notebookState: StateFlow<NotebookState>? = null
+    private var notebookState: StateFlow<NotebookState>? = null
     var noteList = mutableListOf<NoteDetails>()
-    var notebookID: Int? = null
-    var deletedNoteList = mutableListOf<NoteDetails>()
+    private var notebookID: Int? = null
+    private var deletedNoteList = mutableListOf<NoteDetails>()
     fun init(notebookID_: Int? = null) { // 如果是更新已有notebook, 传入其id; 如果是创建新notebook, 传入null
         notebookID_?.let {nid ->
             notebookState =
@@ -41,6 +41,11 @@ class NoteViewModel(
         }
         notebookID = notebookID_
     }
+    fun getNoteList(list: MutableList<NoteDetails>) {
+        list.clear()
+        list.addAll(noteList)
+    }
+
     suspend fun insertNote(listID: Int, content: String, type: NoteType) {
         val noteDetails: NoteDetails = NoteDetails(
             notebookId = notebookID!!,
