@@ -1,20 +1,13 @@
 package com.example.simplenote.ui
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.os.VibrationEffect
-import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.TextField
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.sp
-import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -27,11 +20,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -51,7 +48,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -60,15 +56,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
 import com.example.simplenote.ui.note.NoteViewModel
 import kotlinx.coroutines.delay
@@ -78,16 +76,69 @@ import java.util.Locale
 
 // 为浏览编辑界面临时创建的数据类，文字类、图片类、音频类
 
+val undoStack: MutableList<List<ContentItem>> = mutableListOf()
+// 被撤销内容项列表的栈，用于重做操作
+val redoStack: MutableList<List<ContentItem>> = mutableListOf()
 sealed class ContentItem {
+    abstract fun copy(): ContentItem
+
     data class TextItem(
         var text: MutableState<TextFieldValue>,
-        val isTitle: Boolean = false, // 新增标识是否为标题
+        val isTitle: Boolean = false,
         val isFocused: MutableState<Boolean> = mutableStateOf(false)
-    ) : ContentItem()
+    ) : ContentItem() {
+        override fun copy(): ContentItem {
+            // 创建新的 MutableState 实例，复制原始值
+            return TextItem(
+                text = mutableStateOf(text.value.copy()),
+                isTitle = isTitle,
+                isFocused = mutableStateOf(isFocused.value)
+            )
+        }
+    }
 
-    data class ImageItem(val imageUri: Uri) : ContentItem()
-    data class AudioItem(val audioUri: Uri) : ContentItem()
+    data class ImageItem(val imageUri: Uri) : ContentItem() {
+        override fun copy(): ContentItem {
+            // URI 是不可变的，可以直接复用
+            return ImageItem(imageUri)
+        }
+    }
+
+    data class AudioItem(val audioUri: Uri) : ContentItem() {
+        override fun copy(): ContentItem {
+            // URI 是不可变的，可以直接复用
+            return AudioItem(audioUri)
+        }
+    }
 }
+
+// 现在修改 saveState、undo 和 redo 方法，使用 copy 方法
+fun saveState(contentItems: List<ContentItem>) {
+    if (undoStack.size >= 5) {
+        undoStack.removeAt(0)
+    }
+    undoStack.add(contentItems.map { it.copy() })  // 使用 copy 方法深拷贝
+}
+
+fun undo(contentItems: MutableState<MutableList<ContentItem>>) {
+    if (undoStack.isNotEmpty()) {
+        redoStack.add(contentItems.value.map { it.copy() })  // 使用 copy 方法深拷贝
+        contentItems.value = undoStack.removeAt(undoStack.lastIndex).toMutableList()
+    }
+}
+
+fun redo(contentItems: MutableState<MutableList<ContentItem>>) {
+    if (redoStack.isNotEmpty()) {
+        undoStack.add(contentItems.value.map { it.copy() })  // 使用 copy 方法深拷贝
+        contentItems.value = redoStack.removeAt(redoStack.lastIndex).toMutableList()
+    }
+}
+
+// 清空重做栈，当用户进行了新的编辑操作时调用
+fun clearRedoStack() {
+    redoStack.clear()
+}
+
 
 val sampleTitleItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
 val sampleTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
@@ -121,9 +172,14 @@ fun EditorScreen(
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateToMain: () -> Unit = {},
     navigateBack: () -> Unit = {}
+
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val currentDate = remember { dateFormat.format(Date()) }
+    val isAIDialogOpen = remember { mutableStateOf(false) }
+    val isSearchDialogOpen = remember { mutableStateOf(false) }
+
+
     // 改为直接计算字符串的长度，适用于中文字符的统计
     val totalCharacters = contentItems.value.sumOf {
         when (it) {
@@ -133,9 +189,13 @@ fun EditorScreen(
     }
     val notebookName = "我的笔记本" // 假设笔记本名称是固定的，实际使用中可能来自外部数据源
     Scaffold(
-        topBar = { EditorTopBar() },
+        topBar = { EditorTopBar(
+            onUndo = { undo(contentItems = contentItems)},
+            onRedo = { redo(contentItems)},
+            onSearch = {isSearchDialogOpen.value = true}
+        ) },
         bottomBar = {
-            ControlPanel(contentItems, LocalContext.current)
+            ControlPanel(contentItems, LocalContext.current, onAIClick = {isAIDialogOpen.value = true})
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
@@ -152,6 +212,10 @@ fun EditorScreen(
             }
 
         }
+    }
+    AIDialog(isAIDialogOpen, contentItems)
+    SearchDialog(isDialogOpen = isSearchDialogOpen) {
+
     }
 
 }
@@ -208,7 +272,7 @@ fun InfoBar(currentDate: String, totalCharacters: Int, notebookName: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorTopBar() {
+fun EditorTopBar(onUndo: () -> Unit, onRedo: () -> Unit, onSearch: () -> Unit) {
     TopAppBar(
         title = {},
         navigationIcon = {
@@ -220,21 +284,16 @@ fun EditorTopBar() {
         },
         actions = {
             // Undo button
-            IconButton(onClick = {
-                // Handle undo action
-            }) {
+            IconButton(onClick = onUndo) {
                 Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_undo_24), contentDescription = "Undo")
             }
             // Redo button
-            IconButton(onClick = {
-                // Handle redo action
-            }) {
+            IconButton(onClick = onRedo
+            ) {
                 Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_redo_24), contentDescription = "Redo")
             }
             // Search button
-            IconButton(onClick = {
-                // Handle search action
-            }) {
+            IconButton(onClick = onSearch) {
                 Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_search_24), contentDescription = "Search")
             }
             // Done button
@@ -249,13 +308,15 @@ fun EditorTopBar() {
 
 
 @Composable
-fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: Context) {
+fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: Context, onAIClick: () -> Unit) {
 //    val focusRequester = remember {
 //        FocusRequester()
 //    }
 
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
+                saveState(contentItems.value)
+                clearRedoStack()
                 val items = contentItems.value.toMutableList()
 
 
@@ -300,6 +361,8 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
 
     val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { uri ->
+            saveState(contentItems.value)
+            clearRedoStack()
             val items = contentItems.value.toMutableList()
 
 
@@ -353,6 +416,12 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
 
         Spacer(Modifier.weight(1f, true))
 
+        // AI Button
+        IconButton(onClick = onAIClick) {
+            Icon(painter = painterResource(R.drawable.ic_ai_24), contentDescription = "AI Summary", tint = Color.Unspecified)
+        }
+
+        Spacer(Modifier.weight(1f, true))
         // Audio Button
         IconButton(onClick = { if (!currentFocusIsTitle) audioLauncher.launch("audio/*") },
             enabled = !currentFocusIsTitle
@@ -376,6 +445,86 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
 //        }
 //    }
 }
+
+@Composable
+fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<MutableList<ContentItem>>) {
+    if (isDialogOpen.value) {
+        AlertDialog(
+            onDismissRequest = { isDialogOpen.value = false },
+            title = { Text("AI总结") },
+            text = { Text("使用AI为这篇笔记的文字部分生成总结") },
+            confirmButton = {
+                Button(onClick = {
+                    isDialogOpen.value = false
+                    generateSummary(contentItems)
+                }) {
+                    Text("生成")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { isDialogOpen.value = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit) {
+    if (isDialogOpen.value) {
+        val searchQuery = remember { mutableStateOf("") }
+        AlertDialog(
+            modifier = Modifier.fillMaxWidth(),
+            onDismissRequest = { isDialogOpen.value = false },
+            title = { Text("搜索") },
+            text = {
+                Column {
+                    TextField(
+                        value = searchQuery.value,
+                        onValueChange = { searchQuery.value = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(128.dp)),
+                        placeholder = { Text("请输入搜索内容") },
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp),
+                        colors = TextFieldDefaults.colors(
+                            cursorColor = Color.Black,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+//                            disabledIndicatorColor = Color.Transparent,
+//                            focusedContainerColor = Color.Transparent,
+//                            unfocusedContainerColor = Color.Transparent,
+//                            disabledContainerColor = Color.Transparent
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isDialogOpen.value = false
+                        onSearch(searchQuery.value)
+                    }
+                ) {
+                    Text("搜索", fontSize = 14.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { isDialogOpen.value = false }) {
+                    Text("取消", fontSize = 14.sp)
+                }
+            }
+        )
+    }
+}
+
+fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>) {
+    val allText = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+    // Here, use `allText` to call your AI API for generating the summary
+    Log.d("AI Summary", "Generated summary for text: $allText")
+}
+
 
 @Composable
 fun deleteContentItem(contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
@@ -451,6 +600,8 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
                     onCut = { /* Implement cut logic */ },
                     onCopy = { /* Implement copy logic */ },
                     onDelete = {
+                        saveState(contentItems.value)
+                        clearRedoStack()
                         showOptions.value = false
                         val items = contentItems.value.toMutableList()
                         if (index in items.indices) {
@@ -483,6 +634,7 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
 
                             contentItems.value = items
                         }
+
                     }
                 )
             }
@@ -497,7 +649,8 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
                     .pointerInput(Unit) {
                         detectTapGestures(onLongPress = {
                             triggerVibration()
-                            showOptions.value = !showOptions.value })
+                            showOptions.value = !showOptions.value
+                        })
                     }
             )
         }
@@ -594,6 +747,8 @@ fun DisplayAudioItem(audioItem: ContentItem.AudioItem, context: Context, content
                 onCut = { /* Implement cut logic */ },
                 onCopy = { /* Implement copy logic */ },
                 onDelete = {
+                    saveState(contentItems.value)
+                    clearRedoStack()
                     showOptions.value = false
                     val items = contentItems.value.toMutableList()
                     if (index in items.indices) {
@@ -626,6 +781,7 @@ fun DisplayAudioItem(audioItem: ContentItem.AudioItem, context: Context, content
 
                         contentItems.value = items
                     }
+
                 }
             )
         }
@@ -647,6 +803,8 @@ fun EditTextItem(textItem: ContentItem.TextItem) {
     TextField(
         value = textItem.text.value,
         onValueChange = { newValue ->
+            saveState(contentItems.value)
+            clearRedoStack()
             textItem.text.value = newValue
         },
         modifier = Modifier
