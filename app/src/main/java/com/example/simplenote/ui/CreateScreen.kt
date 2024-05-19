@@ -61,13 +61,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
+import com.example.simplenote.data.NoteType
+import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -110,7 +114,33 @@ sealed class ContentItem {
             return AudioItem(audioUri)
         }
     }
+
+    data class VideoItem(val videoUri: Uri) : ContentItem() {
+        override fun copy(): ContentItem {
+            // URI 是不可变的，可以直接复用
+            return VideoItem(videoUri)
+        }
+    }
+
 }
+
+@Composable
+fun covertNoteToContentItem (note: NoteDetails): ContentItem {
+    var contentItem: ContentItem? = null
+    if(note.type == NoteType.Text) {
+        contentItem = ContentItem.TextItem(
+            text = remember { mutableStateOf(TextFieldValue(note.content)) }
+        )
+    }
+    else if(note.type == NoteType.Photo) {
+        contentItem = ContentItem.ImageItem(Uri.parse(note.content))
+    }
+    else if(note.type == NoteType.Audio) {
+        contentItem = ContentItem.AudioItem(Uri.parse(note.content))
+    }
+    return contentItem!!
+}
+
 
 // 现在修改 saveState、undo 和 redo 方法，使用 copy 方法
 fun saveState(contentItems: List<ContentItem>) {
@@ -179,6 +209,13 @@ fun EditorScreen(
     val isAIDialogOpen = remember { mutableStateOf(false) }
     val isSearchDialogOpen = remember { mutableStateOf(false) }
 
+    val noteList = remember {
+        mutableListOf<NoteDetails>()
+    }
+
+//    noteViewModel.insertNote(-1, "标题", type = NoteType.Text)
+
+
 
     // 改为直接计算字符串的长度，适用于中文字符的统计
     val totalCharacters = contentItems.value.sumOf {
@@ -207,6 +244,8 @@ fun EditorScreen(
                         is ContentItem.TextItem -> EditTextItem(item)
                         is ContentItem.ImageItem -> DisplayImageItem(item, contentItems, index)
                         is ContentItem.AudioItem -> DisplayAudioItem(item, LocalContext.current, contentItems, index)
+                        is ContentItem.VideoItem -> DisplayVideoItem(item, LocalContext.current, contentItems, index)
+
                     }
                 }
             }
@@ -313,7 +352,8 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
 //        FocusRequester()
 //    }
 
-    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    val imageLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
                 saveState(contentItems.value)
                 clearRedoStack()
@@ -331,6 +371,7 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                             items.add(index + 1, ContentItem.ImageItem(uri))
                             items.add(index + 2, newTextItem)
                         }
+
                         0 -> {
                             // 光标在开头
                             newTextItem.isFocused.value = true
@@ -339,9 +380,11 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                             items.add(index + 1, ContentItem.ImageItem(uri))
 
                         }
+
                         else -> {
                             // 光标在中间
-                            val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
+                            val textBefore =
+                                currentItem.text.value.text.substring(0, cursorPosition)
                             val textAfter = currentItem.text.value.text.substring(cursorPosition)
                             val firstTextItem =
                                 ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
@@ -359,76 +402,160 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
             }
         }
 
-    val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let { uri ->
-            saveState(contentItems.value)
-            clearRedoStack()
-            val items = contentItems.value.toMutableList()
+    val audioLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let { uri ->
+                saveState(contentItems.value)
+                clearRedoStack()
+                val items = contentItems.value.toMutableList()
 
 
-            val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
-            if (index != -1) {
-                val currentItem = items[index] as ContentItem.TextItem
-                val cursorPosition = currentItem.text.value.selection.start
-                val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
-                when (cursorPosition) {
-                    currentItem.text.value.text.length -> {
-                        // 光标在末尾
-                        items.add(index + 1, ContentItem.AudioItem(uri))
-                        items.add(index + 2, newTextItem)
-                    }
-                    0 -> {
-                        // 光标在开头
-                        newTextItem.isFocused.value = true
+                val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                if (index != -1) {
+                    val currentItem = items[index] as ContentItem.TextItem
+                    val cursorPosition = currentItem.text.value.selection.start
+                    val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                    when (cursorPosition) {
+                        currentItem.text.value.text.length -> {
+                            // 光标在末尾
+                            items.add(index + 1, ContentItem.AudioItem(uri))
+                            items.add(index + 2, newTextItem)
+                        }
+
+                        0 -> {
+                            // 光标在开头
+                            newTextItem.isFocused.value = true
 //                            newTextItem.focusRequester.requestFocus()
-                        items.add(index, newTextItem)
-                        items.add(index + 1, ContentItem.AudioItem(uri))
+                            items.add(index, newTextItem)
+                            items.add(index + 1, ContentItem.AudioItem(uri))
 
-                    }
-                    else -> {
-                        // 光标在中间
-                        val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
-                        val textAfter = currentItem.text.value.text.substring(cursorPosition)
-                        val firstTextItem =
-                            ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
-                        firstTextItem.isFocused.value = true
-                        val secondTextItem =
-                            ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
-                        items[index] = firstTextItem
-                        items.add(index + 1, ContentItem.AudioItem(uri))
-                        items.add(index + 2, secondTextItem)
+                        }
+
+                        else -> {
+                            // 光标在中间
+                            val textBefore =
+                                currentItem.text.value.text.substring(0, cursorPosition)
+                            val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                            val firstTextItem =
+                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                            firstTextItem.isFocused.value = true
+                            val secondTextItem =
+                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                            items[index] = firstTextItem
+                            items.add(index + 1, ContentItem.AudioItem(uri))
+                            items.add(index + 2, secondTextItem)
 //                            newTextItem.focusRequester.requestFocus()
+                        }
                     }
                 }
+                contentItems.value = items
             }
-            contentItems.value = items
+
+
         }
-    }
-    val currentFocusIsTitle = contentItems.value.any { it is ContentItem.TextItem && it.isFocused.value && it.isTitle }
+
+    val videoLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            uri?.let { uri ->
+                saveState(contentItems.value)
+                clearRedoStack()
+                val items = contentItems.value.toMutableList()
+
+
+                val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                if (index != -1) {
+                    val currentItem = items[index] as ContentItem.TextItem
+                    val cursorPosition = currentItem.text.value.selection.start
+                    val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                    when (cursorPosition) {
+                        currentItem.text.value.text.length -> {
+                            // 光标在末尾
+                            items.add(index + 1, ContentItem.VideoItem(uri))
+                            items.add(index + 2, newTextItem)
+                        }
+
+                        0 -> {
+                            // 光标在开头
+                            newTextItem.isFocused.value = true
+//                            newTextItem.focusRequester.requestFocus()
+                            items.add(index, newTextItem)
+                            items.add(index + 1, ContentItem.VideoItem(uri))
+
+                        }
+
+                        else -> {
+                            // 光标在中间
+                            val textBefore =
+                                currentItem.text.value.text.substring(0, cursorPosition)
+                            val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                            val firstTextItem =
+                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                            firstTextItem.isFocused.value = true
+                            val secondTextItem =
+                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                            items[index] = firstTextItem
+                            items.add(index + 1, ContentItem.VideoItem(uri))
+                            items.add(index + 2, secondTextItem)
+//                            newTextItem.focusRequester.requestFocus()
+                        }
+                    }
+                }
+                contentItems.value = items
+            }
+        }
+
+
+    val currentFocusIsTitle =
+        contentItems.value.any { it is ContentItem.TextItem && it.isFocused.value && it.isTitle }
 
     BottomAppBar {
         // Image Button
-        IconButton(onClick = { if (!currentFocusIsTitle) imageLauncher.launch("image/*") },
+        IconButton(
+            onClick = { if (!currentFocusIsTitle) imageLauncher.launch("image/*") },
             enabled = !currentFocusIsTitle
         ) {
-            Icon(painter = rememberAsyncImagePainter(R.drawable.ic_add_photo), contentDescription = "Add Image")
+            Icon(
+                painter = rememberAsyncImagePainter(R.drawable.ic_add_photo),
+                contentDescription = "Add Image"
+            )
         }
 
         Spacer(Modifier.weight(1f, true))
 
         // AI Button
         IconButton(onClick = onAIClick) {
-            Icon(painter = painterResource(R.drawable.ic_ai_24), contentDescription = "AI Summary", tint = Color.Unspecified)
+            Icon(
+                painter = painterResource(R.drawable.ic_ai_24),
+                contentDescription = "AI Summary",
+                tint = Color.Unspecified
+            )
         }
 
         Spacer(Modifier.weight(1f, true))
         // Audio Button
-        IconButton(onClick = { if (!currentFocusIsTitle) audioLauncher.launch("audio/*") },
+        IconButton(
+            onClick = { if (!currentFocusIsTitle) audioLauncher.launch("audio/*") },
             enabled = !currentFocusIsTitle
         ) {
-            Icon(painter = painterResource(R.drawable.ic_add_audio), contentDescription = "Add Audio")
+            Icon(
+                painter = painterResource(R.drawable.ic_add_audio),
+                contentDescription = "Add Audio"
+            )
+        }
+
+        Spacer(Modifier.weight(1f, true))
+        // Audio Button
+        IconButton(
+            onClick = { if (!currentFocusIsTitle) videoLauncher.launch("video/*") },
+            enabled = !currentFocusIsTitle
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.baseline_video_library_24),
+                contentDescription = "Add Video"
+            )
         }
     }
+}
 //    Row(modifier = Modifier.padding(8.dp)) {
 //        Button(onClick = {
 //            // 打开图库选择图片
@@ -444,7 +571,7 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
 //            Text("Add Audio")
 //        }
 //    }
-}
+
 
 @Composable
 fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<MutableList<ContentItem>>) {
@@ -563,7 +690,11 @@ fun deleteContentItem(contentItems: MutableState<MutableList<ContentItem>>, inde
 
 
 @Composable
-fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
+fun DisplayImageItem(
+    imageItem: ContentItem.ImageItem,
+    contentItems: MutableState<MutableList<ContentItem>>,
+    index: Int
+) {
     val showOptions = remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scale = animateFloatAsState(targetValue = if (showOptions.value) 0.95f else 1f)
@@ -577,13 +708,14 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
             vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
         }
     }
+
     // 使用Box包裹原有的Column，以便于处理点击外部区域隐藏ItemOptionsBar的逻辑
     Box(modifier = Modifier
         .fillMaxWidth()
         .background(color = Color.Transparent)
         .pointerInput(Unit) {
             detectTapGestures(
-                onPress = { // 检测到按压事件
+                onPress = {
                     // 如果ItemOptionsBar显示，尝试将其隐藏
                     if (showOptions.value) {
                         showOptions.value = false
@@ -595,49 +727,6 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
         }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (showOptions.value) {
-                ItemOptionsBar(
-                    onCut = { /* Implement cut logic */ },
-                    onCopy = { /* Implement copy logic */ },
-                    onDelete = {
-                        saveState(contentItems.value)
-                        clearRedoStack()
-                        showOptions.value = false
-                        val items = contentItems.value.toMutableList()
-                        if (index in items.indices) {
-                            val currentItem = items[index]
-                            val prevIndex = index - 1
-                            val nextIndex = index + 1
-
-                            when (currentItem) {
-                                is ContentItem.ImageItem, is ContentItem.AudioItem -> {
-                                    val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
-                                    val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
-
-                                    if (prevItem != null && nextItem != null) {
-                                        // 将下一个文本合并到前一个文本中
-                                        prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
-                                        items.removeAt(nextIndex)
-                                    } else if (nextItem != null) {
-                                        // 如果没有前一个文本项目，将下一个项目上移
-                                        items[prevIndex + 1] = nextItem
-                                    }
-                                    items.removeAt(index)
-                                }
-                                else -> return@ItemOptionsBar
-                            }
-
-                            // 确保总是至少有一个TextItem
-                            if (items.none { it is ContentItem.TextItem }) {
-                                items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
-                            }
-
-                            contentItems.value = items
-                        }
-
-                    }
-                )
-            }
             Image(
                 painter = rememberAsyncImagePainter(imageItem.imageUri),
                 contentDescription = null,
@@ -653,13 +742,75 @@ fun DisplayImageItem(imageItem: ContentItem.ImageItem, contentItems: MutableStat
                         })
                     }
             )
+
+            if (showOptions.value) {
+                Popup(
+                    alignment = Alignment.TopCenter,
+                    offset = IntOffset(0, -150)  // 固定位置在图片正上方
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .background(
+                                color = Color.Gray.copy(alpha = 1f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                    ) {
+                        TextButton(onClick = { /* Implement cut logic */ }) {
+                            Text(text = "Cut", color = Color.White)
+                        }
+                        TextButton(onClick = { /* Implement cut logic */ }) {
+                            Text(text = "Copy", color = Color.White)
+                        }
+                        TextButton(onClick = {
+                            saveState(contentItems.value)
+                            clearRedoStack()
+                            showOptions.value = false
+                            val items = contentItems.value.toMutableList()
+                            if (index in items.indices) {
+                                val currentItem = items[index]
+                                val prevIndex = index - 1
+                                val nextIndex = index + 1
+
+                                when (currentItem) {
+                                    is ContentItem.ImageItem, is ContentItem.AudioItem -> {
+                                        val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
+                                        val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
+
+                                        if (prevItem != null && nextItem != null) {
+                                            // 将下一个文本合并到前一个文本中
+                                            prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
+                                            items.removeAt(nextIndex)
+                                        } else if (nextItem != null) {
+                                            // 如果没有前一个文本项目，将下一个项目上移
+                                            items[prevIndex + 1] = nextItem
+                                        }
+                                        items.removeAt(index)
+                                    }
+                                    else -> return@TextButton
+                                }
+
+                                // 确保总是至少有一个TextItem
+                                if (items.none { it is ContentItem.TextItem }) {
+                                    items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
+                                }
+
+                                contentItems.value = items
+                            }
+                        }) {
+                            Text(text = "Delete", color = Color.White)
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 
+
+
 @Composable
-fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context) {
+fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context, modifier: Modifier) {
     val exoPlayer = remember(context) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(audioItem.audioUri))
@@ -691,7 +842,7 @@ fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context) {
     Card(
         shape = RoundedCornerShape(8.dp),
 //        elevation = 4.dp,
-        modifier = Modifier.padding(8.dp)
+        modifier = modifier
     ) {
         Row(
             modifier = Modifier
@@ -733,68 +884,143 @@ fun Long.msToTime(): String {
 
 
 @Composable
-fun DisplayAudioItem(audioItem: ContentItem.AudioItem, context: Context, contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
+fun DisplayAudioItem(
+    audioItem: ContentItem.AudioItem,
+    context: Context,
+    contentItems: MutableState<MutableList<ContentItem>>,
+    index: Int
+) {
     val showOptions = remember { mutableStateOf(false) }
-    Column(
-        modifier = Modifier.pointerInput(Unit) {
-            detectTapGestures(
-                onLongPress = { showOptions.value = !showOptions.value }
-            )
+    val context = LocalContext.current
+    val scale = animateFloatAsState(targetValue = if (showOptions.value) 0.95f else 1f)
+
+    // 震动效果实现
+    fun triggerVibration() {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        val vibrator = vibratorManager.defaultVibrator
+
+        if (vibrator.hasVibrator()) {
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
         }
-    ) {
-        if (showOptions.value) {
-            ItemOptionsBar(
-                onCut = { /* Implement cut logic */ },
-                onCopy = { /* Implement copy logic */ },
-                onDelete = {
-                    saveState(contentItems.value)
-                    clearRedoStack()
-                    showOptions.value = false
-                    val items = contentItems.value.toMutableList()
-                    if (index in items.indices) {
-                        val currentItem = items[index]
-                        val prevIndex = index - 1
-                        val nextIndex = index + 1
+    }
 
-                        when (currentItem) {
-                            is ContentItem.ImageItem, is ContentItem.AudioItem -> {
-                                val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
-                                val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
-
-                                if (prevItem != null && nextItem != null) {
-                                    // 将下一个文本合并到前一个文本中
-                                    prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
-                                    items.removeAt(nextIndex)
-                                } else if (nextItem != null) {
-                                    // 如果没有前一个文本项目，将下一个项目上移
-                                    items[prevIndex + 1] = nextItem
-                                }
-                                items.removeAt(index)
-                            }
-                            else -> return@ItemOptionsBar
-                        }
-
-                        // 确保总是至少有一个TextItem
-                        if (items.none { it is ContentItem.TextItem }) {
-                            items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
-                        }
-
-                        contentItems.value = items
+    // 使用Box包裹原有的Column，以便于处理点击外部区域隐藏ItemOptionsBar的逻辑
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .background(color = Color.Transparent)
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onPress = {
+                    // 如果ItemOptionsBar显示，尝试将其隐藏
+                    if (showOptions.value) {
+                        showOptions.value = false
+                        // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
+                        awaitRelease()
                     }
-
                 }
             )
         }
-        AudioPlayerUI(audioItem, context)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            AudioPlayerUI(audioItem, context, Modifier.scale(scale.value).pointerInput(Unit) {
+                detectTapGestures(onLongPress = {
+                    triggerVibration()
+                    showOptions.value = !showOptions.value
+                })
+            })
 
-        // Detecting long press on the whole component to show options
-        Modifier.pointerInput(Unit) {
-            detectTapGestures(onLongPress = { showOptions.value = true })
+            if (showOptions.value) {
+                Popup(
+                    alignment = Alignment.TopCenter,
+                    offset = IntOffset(0, -150)  // 固定位置在音频控件正上方
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .background(
+                                color = Color.Gray.copy(alpha = 1f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                    ) {
+                        TextButton(onClick = { /* Implement cut logic */ }) {
+                            Text(text = "Cut", color = Color.White)
+                        }
+                        TextButton(onClick = { /* Implement cut logic */ }) {
+                            Text(text = "Copy", color = Color.White)
+                        }
+                        TextButton(onClick = {
+                            saveState(contentItems.value)
+                            clearRedoStack()
+                            showOptions.value = false
+                            val items = contentItems.value.toMutableList()
+                            if (index in items.indices) {
+                                val currentItem = items[index]
+                                val prevIndex = index - 1
+                                val nextIndex = index + 1
+
+                                when (currentItem) {
+                                    is ContentItem.ImageItem, is ContentItem.AudioItem -> {
+                                        val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
+                                        val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
+
+                                        if (prevItem != null && nextItem != null) {
+                                            // 将下一个文本合并到前一个文本中
+                                            prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
+                                            items.removeAt(nextIndex)
+                                        } else if (nextItem != null) {
+                                            // 如果没有前一个文本项目，将下一个项目上移
+                                            items[prevIndex + 1] = nextItem
+                                        }
+                                        items.removeAt(index)
+                                    }
+                                    else -> return@TextButton
+                                }
+
+                                // 确保总是至少有一个TextItem
+                                if (items.none { it is ContentItem.TextItem }) {
+                                    items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
+                                }
+
+                                contentItems.value = items
+                            }
+                        }) {
+                            Text(text = "Delete", color = Color.White)
+                        }
+                    }
+                }
+            }
         }
     }
 }
+@Composable
+fun DisplayVideoItem(videoItem: ContentItem.VideoItem, context: Context, contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
+    val exoPlayer = remember(context) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoItem.videoUri))
+            prepare()
+        }
+    }
+    val isPlaying = remember { mutableStateOf(false) }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
 
+    Box(modifier = Modifier.fillMaxWidth()) {
+        VideoPlayer(exoPlayer, isPlaying)
+    }
+}
+
+@Composable
+fun VideoPlayer(exoPlayer: ExoPlayer, isPlaying: MutableState<Boolean>) {
+    IconButton(onClick = {
+        isPlaying.value = !isPlaying.value
+        if (isPlaying.value) exoPlayer.play() else exoPlayer.pause()
+    }) {
+        Icon(painter = rememberAsyncImagePainter(if (isPlaying.value) R.drawable.pause else Icons.Filled.PlayArrow), contentDescription = if (isPlaying.value) "Pause" else "Play")
+    }
+}
 
 @Composable
 fun EditTextItem(textItem: ContentItem.TextItem) {

@@ -49,8 +49,12 @@ import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBeha
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -68,12 +72,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
+import com.example.simplenote.ui.note.DirectoryDetails
 import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.NotebookDetails
 import com.example.simplenote.ui.note.NotebookViewModel
-
 import kotlinx.coroutines.launch
-import kotlin.math.log
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
@@ -93,6 +97,45 @@ fun MainScreen(
     else if(!havingDirectory) {
 
     }
+
+    // 本地维护一个directoryList
+    val directoryList = remember { mutableStateListOf<DirectoryDetails>() }
+    val notebookList = remember {
+        mutableStateListOf<NotebookDetails>()
+    }
+    val isFirstLaunch = rememberSaveable { mutableStateOf(false) } // 添加这个状态变量
+    val id = rememberSaveable {
+        mutableIntStateOf(0)
+    }
+    isFirstLaunch.value = true
+//    var currentDirectory by rememberSaveable { mutableStateOf<DirectoryDetails?>(null) }
+//
+//
+//    directoryList.add(DirectoryDetails(id = id.intValue, name = "全部笔记", time = LocalDateTime.now().format(
+//        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))))
+//
+//    directoryList.add(DirectoryDetails(id = id.intValue, name = "未分类", time = LocalDateTime.now().format(
+//        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))))
+//
+//    directoryList.add(DirectoryDetails(id = id.intValue, name = "最近删除", time = LocalDateTime.now().format(
+//        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))))
+//
+
+    LaunchedEffect(Unit) {
+        if (isFirstLaunch.value) {
+            // Initialize directory view model with user ID (assuming 1 for
+            // now)
+            directoryViewModel.insertDirectory("全部笔记")
+            directoryViewModel.insertDirectory("未分类")
+            directoryViewModel.insertDirectory("最近删除")
+            isFirstLaunch.value = false
+        }
+        directoryViewModel.getDirectoryList(directoryList)
+//        notebookViewModel.getNotebookList(notebookList) // 因为要显示的notebook改变了
+    }
+    directoryViewModel.init(id.intValue)
+    notebookViewModel.getNotebookList(notebookList) // 因为要显示的notebook改变了
+
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var showMenu by rememberSaveable { mutableStateOf(false) }
     var showSyncCard by rememberSaveable { mutableStateOf(true) }
@@ -109,7 +152,7 @@ fun MainScreen(
     var isSelecting by rememberSaveable { mutableStateOf(false) }
     var selectedItems by rememberSaveable { mutableStateOf(setOf<Int>()) }
 
-    var isCreatingNotebook by rememberSaveable { mutableStateOf(false) }
+    var isCreatingDirectory by rememberSaveable { mutableStateOf(false) }
 
 
     fun clearSelection() {
@@ -156,6 +199,7 @@ fun MainScreen(
                             modifier = Modifier
                                 .clickable { showBottomSheet = !showBottomSheet } // 使标题可点击
                         ) {
+//                            Text(directoryList[id.intValue].name)
                             Text("全部笔记")
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
@@ -231,12 +275,21 @@ fun MainScreen(
         floatingActionButton = {
             if (!isSelecting) {
                 FloatingActionButton(
-                    onClick = { /* Handle create new note action */ },
+                    onClick = {
+                        scope.launch {
+                            val index = notebookList.size
+                            notebookViewModel.insertDirectory(name = "new")
+                            notebookViewModel.getNotebookList(notebookList)
+                            id.intValue = notebookList[index].id
+                            noteViewModel.init(id.intValue)
+                            navigateToEdit()
+                        }
+                    },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
-                        contentDescription = "新建"
+                        contentDescription = "新建",
                     )
                 }
             }
@@ -246,19 +299,22 @@ fun MainScreen(
                 ModalBottomSheet(
                     onDismissRequest = {
                         showBottomSheet = false
-                        isCreatingNotebook = false
+                        isCreatingDirectory = false
                     },
                     sheetState = sheetState
                 ) {
-                    if (isCreatingNotebook) {
-                        CreateNotebookSheet(
-                            notebookNames = listOf("笔记本1", "笔记本2"), // todo:这里传入已有的笔记本名称
+                    if (isCreatingDirectory) {
+                        CreateDirectorySheet(
+                            directories = directoryList,
                             onCancel = {
-                                isCreatingNotebook = false
+                                isCreatingDirectory = false
                             },
                             onSave = { name->
-                                // todo:保存笔记本逻辑
-                                isCreatingNotebook = false
+                                scope.launch {
+                                    directoryViewModel.insertDirectory(name)
+                                    directoryViewModel.getDirectoryList(directoryList)
+                                    isCreatingDirectory = false
+                                }
                                 // todo:可以在这里添加逻辑，比如更新数据库或状态
                             }
                         )
@@ -269,30 +325,16 @@ fun MainScreen(
                                 scope.launch { sheetState.hide() }
                                     .invokeOnCompletion { showBottomSheet = false }
                             },
-                            onCreateNotebook = {isCreatingNotebook = true},
-                            notebooks = listOf(
-                                "笔记本1",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2",
-                                "笔记本2"
-                            ) // todo:示例笔记本列表，根据实际需要进行调整
+                            onCreateDirectory = {isCreatingDirectory = true},
+
+                            onDirectoryClick = {
+                                id.intValue = it.id
+                                directoryViewModel.init(id.intValue)
+                                notebookViewModel.getNotebookList(notebookList)
+                            },
+                            directories = directoryList,
+                            // todo:示例笔记本列表，根据实际需要进行调整
+                            directoryViewModel = directoryViewModel
                         )
                     }
                 }
@@ -506,7 +548,14 @@ fun BottomNavigationBar(selectedTab: Int, setSelectedTab: (Int) -> Unit, isSelec
     }
 }
 @Composable
-fun BottomSheetContent(onClose: () -> Unit, onCreateNotebook: () -> Unit, notebooks: List<String>) {
+fun BottomSheetContent(
+    onClose: () -> Unit,
+    onCreateDirectory: () -> Unit,
+    directories: List<DirectoryDetails>,
+    onDirectoryClick: (DirectoryDetails) -> Unit,
+    directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    ) {
+    directoryViewModel.getDirectoryList(directories.toMutableList())
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -524,33 +573,34 @@ fun BottomSheetContent(onClose: () -> Unit, onCreateNotebook: () -> Unit, notebo
                 modifier = Modifier.align(Alignment.CenterVertically)  // 这里给文本加大权重，确保它能在中间显示
             )
             Spacer(modifier = Modifier.weight(1.5f))  // 使用权重推动文本到中间
-            IconButton(onClick = onCreateNotebook, modifier = Modifier.weight(1f)) {
+            IconButton(onClick = onCreateDirectory, modifier = Modifier.weight(1f)) {
                 Icon(imageVector = Icons.Filled.Add, contentDescription = "新建笔记本")
             }
         }
         Divider(color = Color.LightGray, thickness = 1.dp)
         LazyColumn {
-            item { Text("全部笔记", modifier = Modifier.padding(16.dp))
-                Divider(color = Color.LightGray, thickness = 1.dp)}
-            item { Text("未分类", modifier = Modifier.padding(16.dp))
-                Divider(color = Color.LightGray, thickness = 1.dp)}
-            items(notebooks) { notebook ->
-                Text(notebook, modifier = Modifier.padding(16.dp))
+            items(directories) { directory ->
+                Text(
+                    directory.name,
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .clickable { onDirectoryClick(directory) }
+                )
                 Divider(color = Color.LightGray, thickness = 1.dp)
             }
-            item { Text("最近删除", modifier = Modifier.padding(16.dp)) }
         }
     }
 }
 
+
 @Composable
-fun CreateNotebookSheet(
-    notebookNames: List<String>, // 已存在的笔记本名称列表
+fun CreateDirectorySheet(
+    directories: MutableList<DirectoryDetails>, // 已存在的笔记本名称列表
     onCancel: () -> Unit,
     onSave: (String) -> Unit // 保存笔记本的函数，参数为笔记本名称和颜色
 ) {
-    var notebookName by rememberSaveable { mutableStateOf("") }
-    val isNameValid = notebookName.isNotBlank() && !notebookNames.contains(notebookName)
+    var directoryName by rememberSaveable { mutableStateOf("") }
+    val isNameValid = directoryName.isNotBlank() && directories.none { it.name == directoryName }
 
     Column(modifier = Modifier
         .fillMaxWidth()
@@ -572,7 +622,7 @@ fun CreateNotebookSheet(
             Spacer(modifier = Modifier.weight(1.5f))  // 使用权重推动文本到中间
             TextButton(
                 modifier = Modifier.weight(1f),
-                onClick = { if (isNameValid) onSave(notebookName) },
+                onClick = { if (isNameValid) onSave(directoryName) },
                 enabled = isNameValid
             ) {
                 Text("保存", color = if (isNameValid) MaterialTheme.colorScheme.onBackground else Color.Gray)
@@ -580,8 +630,8 @@ fun CreateNotebookSheet(
         }
 
         TextField(
-            value = notebookName,
-            onValueChange = { notebookName = it },
+            value = directoryName,
+            onValueChange = { directoryName = it },
             label = { Text("笔记本名称") },
             modifier = Modifier
                 .fillMaxWidth()
