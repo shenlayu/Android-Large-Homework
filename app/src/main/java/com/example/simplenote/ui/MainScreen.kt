@@ -123,17 +123,12 @@ fun MainScreen(
         isFirstLaunch.value = false
         directoryViewModel.insertDirectory("全部笔记")
         Log.d("add1", "全")
-//        Log.d("add1", "${localUiState.directoryList.size}")
         directoryViewModel.insertDirectory("未分类")
         Log.d("add1", "未")
-//        Log.d("add1", "${localUiState.directoryList.size}")
         directoryViewModel.insertDirectory("最近删除")
         Log.d("add1", "最")
-//        Log.d("add1", "${localUiState.directoryList.size}")
     }
-    Log.d("add1", "return")
 
-//    directoryViewModel.init(id.intValue)
 //    notebookViewModel.getNotebookList(notebookList) // 因为要显示的notebook改变了
 
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
