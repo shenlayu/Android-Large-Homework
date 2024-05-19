@@ -14,6 +14,7 @@ class UserViewModel(
     private val usersRepository: UsersRepository,
     private val loggedUserRRepository: LoggedUserRepository
 ): ViewModel() {
+    // var loggedUser: Int? = null
     suspend fun insertUser(username: String, password: String) {
         val userDetails = UserDetails(
             username = username,
@@ -93,6 +94,10 @@ class UserViewModel(
         } ?. run { // 目前没有登录用户
             println("logout ERROR: No user found")
         }
+    }
+    suspend fun checkUserExist(username: String): Boolean {
+        // TODO
+        return true
     }
 }
 

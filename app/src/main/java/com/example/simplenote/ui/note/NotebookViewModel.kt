@@ -57,7 +57,7 @@ class NotebookViewModel(
     fun changeSortType(sortTypeTo: SortType) {
         sortType = sortTypeTo
     }
-    suspend fun insertDirectory(name: String) {
+    suspend fun insertNotebook(name: String) {
         val notebookDetails: NotebookDetails = NotebookDetails(
             name = name,
             directoryId = directoryID!!,
@@ -67,7 +67,7 @@ class NotebookViewModel(
         notebookList.add(notebookDetails)
         sortBySortType()
     }
-    suspend fun deleteDirectory(listID: Int) {
+    suspend fun deleteNotebook(listID: Int) {
         if(listID < notebookList.size) {
             val notebook = notebookList[listID].toNotebook()
             notebookList.removeAt(listID) // 不确定要不要删
@@ -86,6 +86,12 @@ class NotebookViewModel(
         else {
             println("changeDirectoryName ERROR: No user found")
         }
+    }
+    suspend fun changeNotebookTime(listID: Int) {
+        // TODO
+    }
+    suspend fun getPreviewNote(listID: Int) {
+        // TODO
     }
 }
 
