@@ -8,7 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.simplenote.ui.theme.SimpleNoteTheme
-import com.example.simplenote.ui.MainScreen
 import com.example.simplenote.ui.PreviewEditorScreen
 
 class MainActivity : ComponentActivity() {
@@ -18,7 +17,6 @@ class MainActivity : ComponentActivity() {
             SimpleNoteTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
-
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
