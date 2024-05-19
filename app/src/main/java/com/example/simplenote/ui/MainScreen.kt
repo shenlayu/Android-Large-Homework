@@ -1,6 +1,8 @@
 package com.example.simplenote.ui
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,25 +10,39 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -46,7 +62,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -58,6 +78,7 @@ import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookDetails
 import com.example.simplenote.ui.note.NotebookViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
@@ -82,26 +103,33 @@ fun MainScreen(
     val notebookList = remember {
         mutableStateListOf<NotebookDetails>()
     }
-    val isFirstLaunch = rememberSaveable { mutableStateOf(false) } // 添加这个状态变量
+    val isFirstLaunch = rememberSaveable { mutableStateOf(true) } // 添加这个状态变量
     val id = rememberSaveable {
         mutableIntStateOf(0)
     }
     val localUiState by directoryViewModel.uiState.collectAsState()
-    val directoryList = localUiState.directoryList
-    isFirstLaunch.value = true
+    //val localDirectoryList = directoryViewModel.directoryList.value
+
+    //directoryViewModel.init(0)
+    // val directoryList = localUiState.directoryList
     var currentDirectory by rememberSaveable { mutableStateOf<DirectoryDetails?>(null) }
 
+    directoryViewModel.backdoor()
+    Log.d("add1", "${localUiState.directoryList.size}")
 
     if (isFirstLaunch.value) {
         // Initialize directory view model with user ID (assuming 1 for
         // now)
-        directoryViewModel.insertDirectory("全部笔记")
-        directoryViewModel.insertDirectory("未分类")
-        directoryViewModel.insertDirectory("最近删除")
         isFirstLaunch.value = false
+        directoryViewModel.insertDirectory("全部笔记")
+        Log.d("add1", "全")
+        directoryViewModel.insertDirectory("未分类")
+        Log.d("add1", "未")
+        directoryViewModel.insertDirectory("最近删除")
+        Log.d("add1", "最")
     }
-    directoryViewModel.init(id.intValue)
-    notebookViewModel.getNotebookList(notebookList) // 因为要显示的notebook改变了
+
+//    notebookViewModel.getNotebookList(notebookList) // 因为要显示的notebook改变了
 
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var showMenu by rememberSaveable { mutableStateOf(false) }
@@ -121,7 +149,6 @@ fun MainScreen(
 
     var isCreatingDirectory by rememberSaveable { mutableStateOf(false) }
 
-
     fun clearSelection() {
         isSelecting = false
         selectedItems = setOf()
@@ -139,240 +166,251 @@ fun MainScreen(
         isSelecting = true
         handleItemSelect(index)
     }
-//    Scaffold(
-//        topBar = {
-//            if (isSelecting) {
-//                LargeTopAppBar(
-//                    scrollBehavior = scrollBehavior,
-//                    title = { Text(if (selectedItems.isEmpty()) "请选择项目" else "已选择${selectedItems.size}项") },
-//                    navigationIcon = {
-//                        TextButton(onClick = { clearSelection() }) {
-//                            Text("取消")
-//                        }
-//                    },
-//                    actions = {
-//                        TextButton(onClick = { selectedItems = (0..99).toSet(); isSelecting = true }) {
-//                            Text("全选")
-////                            todo: 需要修改全选的逻辑
-//                        }
-//                    }
-//                )
-//            } else {
-//                LargeTopAppBar(
-//                    scrollBehavior = scrollBehavior,
-//                    title = {
-//                        Row(
-//                            verticalAlignment = Alignment.CenterVertically,
-//                            modifier = Modifier
-//                                .clickable { showBottomSheet = !showBottomSheet } // 使标题可点击
-//                        ) {
-////                            Text(directoryList[id.intValue].name)
-//                            Text("全部笔记")
-//                            Spacer(modifier = Modifier.width(8.dp))
-//                            Icon(
-//                                imageVector = if (showBottomSheet) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-//                                contentDescription = "展开"
-//                            )
-//                        }
-//                    },
-//
-//                    navigationIcon = {
-//                        IconButton(onClick = { /* Handle avatar click */ }, modifier = Modifier.padding(start = 8.dp)) {
-//                            Image(
-//                                painter = painterResource(id = R.drawable.avatar),
-//                                contentDescription = "Avatar",
-//                                modifier = Modifier.size(48.dp),
-//                                contentScale = ContentScale.Crop,
-//                            )
-//                        }
-//                    },
-//                    actions = {
-//                        IconButton(onClick = { showSortMenu = !showSortMenu }) {
-//                            Icon(
-//                                rememberAsyncImagePainter(model = R.drawable.baseline_sort_24),
-//                                contentDescription = "排序"
-//                            )
-//                        }
-//                        DropdownMenu(
-//                            expanded = showSortMenu,
-//                            onDismissRequest = { showSortMenu = false },
-//                            modifier = Modifier.clip(RoundedCornerShape(8.dp))
-//                        ) {
-//                            DropdownMenuItem(
-//                                text = { Text("按修改时间排序") },
-//                                onClick = { sortOrder = "按修改时间排序"; showSortMenu = false },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                            )
-//                            Divider()
-//                            DropdownMenuItem(
-//                                text = { Text("按修改时间排序") },
-//                                onClick = { sortOrder = "按创建时间排序"; showSortMenu = false },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                            )
-//                        }
-//
-//                        IconButton(onClick = { /* Handle search action */ }) {
-//                            Icon(
-//                                imageVector = Icons.Filled.Search,
-//                                contentDescription = "搜索"
-//                            )
-//                        }
-//                        IconButton(onClick = { showMenu = !showMenu }) {
-//                            Icon(
-//                                imageVector = Icons.Filled.MoreVert,
-//                                contentDescription = "更多"
-//                            )
-//                        }
-//                        DropdownMenu(
-//                            expanded = showMenu,
-//                            onDismissRequest = { showMenu = false }
-//                        ) {
-//                            DropdownMenuItem(text = { Text("第一个菜单项") }, onClick = { /*TODO*/ })
-//                            DropdownMenuItem(text = { Text("第二个菜单项") }, onClick = { /*TODO*/ })
-//                            DropdownMenuItem(text = { Text("第三个菜单项") }, onClick = { /*TODO*/ })
-//                        }
-//                    }
-//                )
-//            }
-//
-//
-//        },
-//        floatingActionButton = {
-//            if (!isSelecting) {
-//                FloatingActionButton(
-//                    onClick = {
-//                        scope.launch {
-//                            val index = notebookList.size
-//                            notebookViewModel.insertNotebook(name = "new")
-//                            notebookViewModel.getNotebookList(notebookList)
-//                            id.intValue = notebookList[index].id
-//                            noteViewModel.init(id.intValue)
-////                            navigateToEdit()
-//                        }
-//                    },
-//                    containerColor = MaterialTheme.colorScheme.secondary
-//                ) {
-//                    Icon(
-//                        imageVector = Icons.Filled.Add,
-//                        contentDescription = "新建",
-//                    )
-//                }
-//            }
-//        },
-//        bottomBar = {
-//            if (showBottomSheet) {
-//                ModalBottomSheet(
-//                    onDismissRequest = {
-//                        showBottomSheet = false
-//                        isCreatingDirectory = false
-//                    },
-//                    sheetState = sheetState
-//                ) {
-//                    if (isCreatingDirectory) {
-//                        CreateDirectorySheet(
-//                            directories = directoryList,
-//                            onCancel = {
-//                                isCreatingDirectory = false
-//                            },
-//                            onSave = { name->
+    Scaffold(
+        topBar = {
+            if (isSelecting) {
+                LargeTopAppBar(
+                    scrollBehavior = scrollBehavior,
+                    title = { Text(if (selectedItems.isEmpty()) "请选择项目" else "已选择${selectedItems.size}项") },
+                    navigationIcon = {
+                        TextButton(onClick = { clearSelection() }) {
+                            Text("取消")
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = { selectedItems = (0..99).toSet(); isSelecting = true }) {
+                            Text("全选")
+//                            todo: 需要修改全选的逻辑
+                        }
+                    }
+                )
+            } else {
+                LargeTopAppBar(
+                    scrollBehavior = scrollBehavior,
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable { showBottomSheet = !showBottomSheet } // 使标题可点击
+                        ) {
+//                            Text(directoryList[id.intValue].name)
+                            Text("全部笔记")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                imageVector = if (showBottomSheet) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                contentDescription = "展开"
+                            )
+                        }
+                    },
+
+                    navigationIcon = {
+                        IconButton(onClick = { /* Handle avatar click */ }, modifier = Modifier.padding(start = 8.dp)) {
+                            Image(
+                                painter = painterResource(id = R.drawable.avatar),
+                                contentDescription = "Avatar",
+                                modifier = Modifier.size(48.dp),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { showSortMenu = !showSortMenu }) {
+                            Icon(
+                                rememberAsyncImagePainter(model = R.drawable.baseline_sort_24),
+                                contentDescription = "排序"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("按修改时间排序") },
+                                onClick = { sortOrder = "按修改时间排序"; showSortMenu = false },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            )
+                            Divider()
+                            DropdownMenuItem(
+                                text = { Text("按修改时间排序") },
+                                onClick = { sortOrder = "按创建时间排序"; showSortMenu = false },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            )
+                        }
+
+                        IconButton(onClick = { /* Handle search action */ }) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = "搜索"
+                            )
+                        }
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "更多"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(text = { Text("第一个菜单项") }, onClick = { /*TODO*/ })
+                            DropdownMenuItem(text = { Text("第二个菜单项") }, onClick = { /*TODO*/ })
+                            DropdownMenuItem(text = { Text("第三个菜单项") }, onClick = { /*TODO*/ })
+                        }
+                    }
+                )
+            }
+
+
+        },
+        floatingActionButton = {
+            if (!isSelecting) {
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            val index = notebookList.size
+                            notebookViewModel.insertNotebook(name = "new")
+                            notebookViewModel.getNotebookList(notebookList)
+                            id.intValue = notebookList[index].id
+                            noteViewModel.init(id.intValue)
+//                            navigateToEdit()
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.secondary
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "新建",
+                    )
+                }
+            }
+        },
+        bottomBar = {
+            if (showBottomSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = {
+                        showBottomSheet = false
+                        isCreatingDirectory = false
+                    },
+                    sheetState = sheetState
+                ) {
+                    if (isCreatingDirectory) {
+                        CreateDirectorySheet(
+                            directories = localUiState.directoryList,
+                            onCancel = {
+                                isCreatingDirectory = false
+                            },
+                            onSave = { name->
 //                                scope.launch {
-//                                    directoryViewModel.insertDirectory(name)
-//                                    isCreatingDirectory = false
+                                    directoryViewModel.insertDirectory(name)
+                                    isCreatingDirectory = false
 //                                }
-//                                // todo:可以在这里添加逻辑，比如更新数据库或状态
-//                            }
-//                        )
-//                    }
-//                    else {
-//                        BottomSheetContent(
-//                            onClose = {
-//                                scope.launch { sheetState.hide() }
-//                                    .invokeOnCompletion { showBottomSheet = false }
-//                            },
-//                            onCreateDirectory = {isCreatingDirectory = true},
-//
-//                            onDirectoryClick = {
-//                                id.intValue = it.id
-//                                directoryViewModel.init(id.intValue)
-//                                notebookViewModel.getNotebookList(notebookList)
-//                            },
-//                            directories = directoryList,
-//                            // todo:示例笔记本列表，根据实际需要进行调整
-//                            directoryViewModel = directoryViewModel
-//                        )
-//                    }
+                                // todo:可以在这里添加逻辑，比如更新数据库或状态
+                            }
+                        )
+                    }
+                    else {
+                        BottomSheetContent(
+                            onClose = {
+                                scope.launch { sheetState.hide() }
+                                    .invokeOnCompletion { showBottomSheet = false }
+                            },
+                            onCreateDirectory = {isCreatingDirectory = true},
+
+                            onDirectoryClick = {
+                                id.intValue = it.id
+                                directoryViewModel.init(id.intValue)
+                                notebookViewModel.getNotebookList(notebookList)
+                            },
+                            directories = localUiState.directoryList,
+                            // todo:示例笔记本列表，根据实际需要进行调整
+                            directoryViewModel = directoryViewModel
+                        )
+                    }
+                }
+
+            } else {
+                BottomNavigationBar(
+                    selectedTab = selectedTab,
+                    setSelectedTab = setSelectedTab,
+                    isSelecting = isSelecting,
+                    onMove = {
+                        // todo: 处理移动操作的逻辑
+
+                    },
+                    onDelete = {
+                        // todo: 处理删除操作的逻辑
+
+                        // 清除选中的项目
+                        selectedItems = setOf()
+                        isSelecting = false
+                    }
+                )
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .verticalScroll(rememberScrollState())
+                .padding(padding)
+        ) {
+//            Row() {
+//                val coroutineScope = rememberCoroutineScope()
+//                var idx: Int = 1
+//                Button(onClick = {
+//                    viewModel.init(1, "name")
+//                }) {
 //                }
-//
-//            } else {
-//                BottomNavigationBar(
-//                    selectedTab = selectedTab,
-//                    setSelectedTab = setSelectedTab,
-//                    isSelecting = isSelecting,
-//                    onMove = {
-//                        // todo: 处理移动操作的逻辑
-//
-//                    },
-//                    onDelete = {
-//                        // todo: 处理删除操作的逻辑
-//
-//                        // 清除选中的项目
-//                        selectedItems = setOf()
-//                        isSelecting = false
+//                Button(onClick = {
+//                    viewModel.addText("halo${idx++}")
+//                }) {
+//                }
+//                Button(onClick = {
+//                    coroutineScope.launch {
+//                        viewModel.saveNotebook()
 //                    }
-//                )
-//            }
-//        }
-//    ) { padding ->
-//        Column(
-//            modifier = Modifier
-//                .nestedScroll(scrollBehavior.nestedScrollConnection)
-//                .verticalScroll(rememberScrollState())
-//                .padding(padding)
-//        ) {
-////            Row() {
-////                val coroutineScope = rememberCoroutineScope()
-////                var idx: Int = 1
-////                Button(onClick = {
-////                    viewModel.init(1, "name")
-////                }) {
-////                }
-////                Button(onClick = {
-////                    viewModel.addText("halo${idx++}")
-////                }) {
-////                }
-////                Button(onClick = {
-////                    coroutineScope.launch {
-////                        viewModel.saveNotebook()
-////                    }
-////                }) {
-////                }
-//            // }
-//            if (showSyncCard) {
-//                SpecialSyncCard(
-//                    onIgnore = { showSyncCard = false },
-//                    onEnable = { /* Handle enable action */ }
-//                )
-//            }
-//            repeat(99) { index ->  // 保持99个项目以达到100个
-//                CustomListItem(
-//                    index = index,
-//                    text = "$index. 主要标题",
-//                    subText1 = if (index % 2 == 0) "次要信息" else null,
-//                    subText2 = "附加信息",
-//                    isSelecting = isSelecting,
-//                    isSelected = selectedItems.contains(index),
-//                    onSelect = { handleItemSelect(index) },
-//                    onLongPress = { handleLongPress(index) },
-//                    enterEditScreen = {
-//                    //todo: 完成进入编辑界面的逻辑
-//                    }
-//                )
-//            }
-//            Spacer(Modifier.height(16.dp))
-//        }
-//    }
+//                }) {
+//                }
+            // }
+
+            TextField(
+                value = localUiState.SavedText,
+                onValueChange = {
+                    directoryViewModel.Updatetext((it))
+                },
+                singleLine = false,
+                maxLines = 4,
+                modifier = Modifier
+            )
+
+            if (showSyncCard) {
+                SpecialSyncCard(
+                    onIgnore = { showSyncCard = false },
+                    onEnable = { /* Handle enable action */ }
+                )
+            }
+            repeat(99) { index ->  // 保持99个项目以达到100个
+                CustomListItem(
+                    index = index,
+                    text = "$index. 主要标题",
+                    subText1 = if (index % 2 == 0) "次要信息" else null,
+                    subText2 = "附加信息",
+                    isSelecting = isSelecting,
+                    isSelected = selectedItems.contains(index),
+                    onSelect = { handleItemSelect(index) },
+                    onLongPress = { handleLongPress(index) },
+                    enterEditScreen = {
+                    //todo: 完成进入编辑界面的逻辑
+                    }
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -560,7 +598,7 @@ fun BottomSheetContent(
 
 @Composable
 fun CreateDirectorySheet(
-    directories: MutableList<DirectoryDetails>, // 已存在的笔记本名称列表
+    directories: List<DirectoryDetails>, // 已存在的笔记本名称列表
     onCancel: () -> Unit,
     onSave: (String) -> Unit // 保存笔记本的函数，参数为笔记本名称和颜色
 ) {

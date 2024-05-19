@@ -1,8 +1,11 @@
 package com.example.simplenote.ui.note
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.simplenote.data.DirectoriesRepository
@@ -15,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -90,12 +94,12 @@ class DirectoryViewModel(
         if(_uiState.value.sortType == SortType.Time) {
             val newDirectoryList = _uiState.value.directoryList.toMutableList()
             newDirectoryList.sortBy { it.time }
-            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList)
+            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
         }
         else if(_uiState.value.sortType == SortType.Name) {
             val newDirectoryList = _uiState.value.directoryList.toMutableList()
             newDirectoryList.sortBy { it.name }
-            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList)
+            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
         }
     }
     fun changeSortType(sortTypeTo: SortType) {
@@ -116,16 +120,30 @@ class DirectoryViewModel(
     fun insertDirectory(name: String) {
         val directoryDetails: DirectoryDetails = DirectoryDetails(
             name = name,
-            userId = _uiState.value.userID!!,
+//            userId = _uiState.value.userID!!,
+            userId = 0,
             time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         )
-        val newDirectoryList = _uiState.value.directoryList.toMutableList()
-        newDirectoryList.add(directoryDetails)
-        _uiState.value = _uiState.value.copy(directoryList = newDirectoryList)
+        val newDirectoryList = _uiState.value.directoryList.toMutableList().apply { add(directoryDetails) }
+        _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
         sortBySortType()
         viewModelScope.launch {
-            directoriesRepository.insertDirectory(directoryDetails.toDirectory())
+//            directoriesRepository.insertDirectory(directoryDetails.toDirectory())
+            try {
+                directoriesRepository.insertDirectory(directoryDetails.toDirectory())
+            } catch (e: Exception) {
+                Log.e("DirectoryViewModel", "Error inserting directory", e)
+            }
         }
+//        viewModelScope.launch {
+//            for(num in 0..50) {
+//                // Log.d("add1", "num${num}")
+//                val dir = directoriesRepository.getDirectory(num).firstOrNull()?.toDirectoryDetails()
+//                if(dir != null) {
+//                    Log.d("add1", "get ${dir.name}")
+//                }
+//            }
+//        }
     }
 //    suspend fun deleteDirectory(listID: Int) {
 //        if (listID < directoryList.size) {
@@ -143,7 +161,7 @@ class DirectoryViewModel(
             val newDirectoryList = _uiState.value.directoryList.toMutableList()
             val directory = newDirectoryList[listID].toDirectory()
             newDirectoryList.removeAt(listID) // 不确定要不要删
-            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList)
+            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
             viewModelScope.launch {
                 directoriesRepository.deleteDirectory(directory)
             }
@@ -167,7 +185,7 @@ class DirectoryViewModel(
         if(listID < _uiState.value.directoryList.size) {
             val newDirectoryList = _uiState.value.directoryList.toMutableList()
             newDirectoryList[listID].name = name
-            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList)
+            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
             viewModelScope.launch {
                 val directory = newDirectoryList[listID].toDirectory()
                 directoriesRepository.updateDirectory(directory)
@@ -177,13 +195,21 @@ class DirectoryViewModel(
             println("changeDirectoryName ERROR: No user found")
         }
     }
+
+    fun backdoor() {
+        _uiState.value = _uiState.value.copy(userID = 0)
+    }
+    fun Updatetext(text: String) {
+        _uiState.value = _uiState.value.copy(SavedText = text)
+    }
 }
 
 data class DirectoryUiState(
     val userState: StateFlow<UserState>? = null,
-    val directoryList: MutableList<DirectoryDetails> = mutableListOf<DirectoryDetails>(),
     val userID: Int? = null,
-    val sortType: SortType = SortType.Time
+    val directoryList: List<DirectoryDetails> = listOf<DirectoryDetails>(),
+    val sortType: SortType = SortType.Time,
+    val SavedText: String = ""
 )
 
 data class UserState(
