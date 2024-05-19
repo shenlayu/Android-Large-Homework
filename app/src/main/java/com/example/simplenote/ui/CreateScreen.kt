@@ -124,23 +124,6 @@ sealed class ContentItem {
 
 }
 
-@Composable
-fun covertNoteToContentItem (note: NoteDetails): ContentItem {
-    var contentItem: ContentItem? = null
-    if(note.type == NoteType.Text) {
-        contentItem = ContentItem.TextItem(
-            text = remember { mutableStateOf(TextFieldValue(note.content)) }
-        )
-    }
-    else if(note.type == NoteType.Photo) {
-        contentItem = ContentItem.ImageItem(Uri.parse(note.content))
-    }
-    else if(note.type == NoteType.Audio) {
-        contentItem = ContentItem.AudioItem(Uri.parse(note.content))
-    }
-    return contentItem!!
-}
-
 
 // 现在修改 saveState、undo 和 redo 方法，使用 copy 方法
 fun saveState(contentItems: List<ContentItem>) {
