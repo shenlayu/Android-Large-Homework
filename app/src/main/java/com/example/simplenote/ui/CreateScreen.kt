@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
@@ -54,12 +55,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -76,6 +77,7 @@ import androidx.compose.ui.window.Popup
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -608,7 +610,6 @@ fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<Mut
         )
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit) {
     if (isDialogOpen.value) {
@@ -663,42 +664,6 @@ fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>) {
     // Here, use `allText` to call your AI API for generating the summary
     Log.d("AI Summary", "Generated summary for text: $allText")
 }
-
-
-@Composable
-fun deleteContentItem(contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
-    val items = contentItems.value.toMutableList()
-    if (index in items.indices) {
-        val currentItem = items[index]
-        val prevIndex = index - 1
-        val nextIndex = index + 1
-
-        // Check if there are text items around the image or audio to merge them
-        val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
-        val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
-
-        if (prevItem != null && nextItem != null) {
-            // Merge the next text into the previous one and remove the current and next items
-            val mergedText = prevItem.text.value.text + nextItem.text.value.text
-            prevItem.text.value = TextFieldValue(mergedText)
-            items.removeAt(nextIndex) // Remove the next text item
-            items.removeAt(index) // Remove the current item (now at the original index)
-        } else if (prevItem != null && nextItem == null) {
-            // If there is no next text item, just remove the current item
-            items.removeAt(index)
-        } else if (prevItem == null && nextItem != null) {
-            // If there is no previous text item, replace the current item with the next text item
-            items[index] = nextItem
-            items.removeAt(nextIndex)
-        } else {
-            // If there are no surrounding text items, just remove the current item
-            items.removeAt(index)
-        }
-
-        contentItems.value = items
-    }
-}
-
 
 
 @Composable
@@ -930,7 +895,7 @@ fun DisplayAudioItem(
     }
 }
 
-@Composable
+@androidx.annotation.OptIn(UnstableApi::class) @Composable
 fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context, modifier: Modifier) {
     val exoPlayer = remember(context) {
         ExoPlayer.Builder(context).build().apply {
@@ -1013,121 +978,205 @@ fun Long.msToTime(): String {
 
 
 
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
+@androidx.annotation.OptIn(UnstableApi::class) @Composable
 fun DisplayVideoItem(
     videoItem: ContentItem.VideoItem,
     context: Context,
     contentItems: MutableState<MutableList<ContentItem>>,
     index: Int
 ) {
-    // 初始化 ExoPlayer
-    val exoPlayer = remember(context) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoItem.videoUri))
-            prepare()
-        }
-    }
+    // 是否显示视频播放界面
+    var showVideoPlayer by remember { mutableStateOf(false) }
 
-    // 其他状态变量
-    val aspectRatio = remember { mutableStateOf(16 / 9f) }
-
-    // 更新宽高比
-    LaunchedEffect(videoItem.videoUri) {
+    // 获取视频缩略图
+    val thumbnail = remember(videoItem.videoUri) {
         val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(context, videoItem.videoUri)
-            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toFloat() ?: 16f
-            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toFloat() ?: 9f
-            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toFloat() ?: 0f
-            aspectRatio.value = if (rotation == 90f || rotation == 270f) {
-                height / width
-            } else {
-                width / height
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            retriever.release()
-        }
+        retriever.setDataSource(context, videoItem.videoUri)
+        val bitmap = retriever.frameAtTime
+        retriever.release()
+        bitmap
     }
 
-    // 主 UI 组件
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = Color.Transparent)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(aspectRatio.value)
-            ) {
-                // 视频播放器视图
-                AndroidView(
-                    factory = { context ->
-                        PlayerView(context).apply {
-                            player = exoPlayer
-                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        }
-                    },
+    if (showVideoPlayer) {
+        // 为视频初始化 ExoPlayer，并确保只在 videoUri 改变时重新构建
+        val exoPlayer = remember(videoItem.videoUri) {
+            ExoPlayer.Builder(context).build().apply {
+                setMediaItem(MediaItem.fromUri(videoItem.videoUri))
+                prepare()
+            }
+        }.also {
+            DisposableEffect(Unit) {
+                onDispose {
+                    it.release()  // 确保在 Composable 移除时释放资源
+                }
+            }
+        }
+
+        // 其他状态变量
+        val aspectRatio = remember { mutableStateOf(16 / 9f) }
+
+        // 更新宽高比
+        LaunchedEffect(videoItem.videoUri) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, videoItem.videoUri)
+                val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toFloat() ?: 16f
+                val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toFloat() ?: 9f
+                val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toFloat() ?: 0f
+                aspectRatio.value = if (rotation == 90f || rotation == 270f) {
+                    height / width
+                } else {
+                    width / height
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                retriever.release()
+            }
+        }
+
+        // 主 UI 组件
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(color = Color.Transparent)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(aspectRatio.value)
-                )
-
-                // 删除按钮
-                IconButton(
-                    onClick = {
-                        saveState(contentItems.value)
-                        clearRedoStack()
-                        val items = contentItems.value.toMutableList()
-                        if (index in items.indices) {
-                            val currentItem = items[index]
-                            val prevIndex = index - 1
-                            val nextIndex = index + 1
-
-                            when (currentItem) {
-                                is ContentItem.ImageItem, is ContentItem.AudioItem, is ContentItem.VideoItem -> {
-                                    val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
-                                    val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
-
-                                    if (prevItem != null && nextItem != null) {
-                                        // 将下一个文本合并到前一个文本中
-                                        prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
-                                        items.removeAt(nextIndex)
-                                    } else if (nextItem != null) {
-                                        // 如果没有前一个文本项目，将下一个项目上移
-                                        items[prevIndex + 1] = nextItem
-                                    }
-                                    items.removeAt(index)
-                                }
-                                else -> return@IconButton
-                            }
-
-                            // 确保总是至少有一个 TextItem
-                            if (items.none { it is ContentItem.TextItem }) {
-                                items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
-                            }
-
-                            contentItems.value = items
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Video",
-                        tint = Color.Gray.copy(alpha = 0.6f)
+                    // 视频播放器视图
+                    AndroidView(
+                        factory = { context ->
+                            PlayerView(context).apply {
+                                player = exoPlayer
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(aspectRatio.value)
                     )
+
+                    // 删除按钮
+                    IconButton(
+                        onClick = {
+                            saveState(contentItems.value)
+                            clearRedoStack()
+                            val items = contentItems.value.toMutableList()
+                            if (index in items.indices) {
+                                val currentItem = items[index]
+                                val prevIndex = index - 1
+                                val nextIndex = index + 1
+
+                                when (currentItem) {
+                                    is ContentItem.ImageItem, is ContentItem.AudioItem, is ContentItem.VideoItem -> {
+                                        val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
+                                        val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
+
+                                        if (prevItem != null && nextItem != null) {
+                                            // 将下一个文本合并到前一个文本中
+                                            prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
+                                            items.removeAt(nextIndex)
+                                        } else if (nextItem != null) {
+                                            // 如果没有前一个文本项目，将下一个项目上移
+                                            items[prevIndex + 1] = nextItem
+                                        }
+                                        items.removeAt(index)
+                                    }
+                                    else -> return@IconButton
+                                }
+
+                                // 确保总是至少有一个 TextItem
+                                if (items.none { it is ContentItem.TextItem }) {
+                                    items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
+                                }
+
+                                contentItems.value = items
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Video",
+                            tint = Color.Gray.copy(alpha = 0.6f)
+                        )
+                    }
                 }
+            }
+        }
+    } else {
+        // 显示视频缩略图
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(color = Color.Transparent)
+                .clickable { showVideoPlayer = true }
+        ) {
+            thumbnail?.let {
+                Image(
+                    bitmap = it.asImageBitmap(),
+                    contentDescription = "Video Thumbnail",
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // 删除按钮
+            IconButton(
+                onClick = {
+                    saveState(contentItems.value)
+                    clearRedoStack()
+                    val items = contentItems.value.toMutableList()
+                    if (index in items.indices) {
+                        val currentItem = items[index]
+                        val prevIndex = index - 1
+                        val nextIndex = index + 1
+
+                        when (currentItem) {
+                            is ContentItem.ImageItem, is ContentItem.AudioItem, is ContentItem.VideoItem -> {
+                                val prevItem = items.getOrNull(prevIndex) as? ContentItem.TextItem
+                                val nextItem = items.getOrNull(nextIndex) as? ContentItem.TextItem
+
+                                if (prevItem != null && nextItem != null) {
+                                    // 将下一个文本合并到前一个文本中
+                                    prevItem.text.value = TextFieldValue(prevItem.text.value.text + nextItem.text.value.text)
+                                    items.removeAt(nextIndex)
+                                } else if (nextItem != null) {
+                                    // 如果没有前一个文本项目，将下一个项目上移
+                                    items[prevIndex + 1] = nextItem
+                                }
+                                items.removeAt(index)
+                            }
+                            else -> return@IconButton
+                        }
+
+                        // 确保总是至少有一个 TextItem
+                        if (items.none { it is ContentItem.TextItem }) {
+                            items.add(ContentItem.TextItem(mutableStateOf(TextFieldValue(""))))
+                        }
+
+                        contentItems.value = items
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Video",
+                    tint = Color.Gray.copy(alpha = 0.6f)
+                )
             }
         }
     }
 }
+
 
 
 
@@ -1249,6 +1298,8 @@ fun ImageViewer(imageUri: Uri, onDismiss: () -> Unit) {
         }
     }
 }
+
+
 
 @Preview
 @Composable

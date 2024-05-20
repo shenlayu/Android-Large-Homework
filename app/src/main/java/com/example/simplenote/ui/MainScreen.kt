@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -46,10 +47,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -67,9 +70,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
@@ -89,13 +94,12 @@ fun MainScreen(
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
     logged: Boolean = false,
     havingDirectory: Boolean = false,
-    navigateToEdit: ()->Unit = {},
+    navigateToEdit: () -> Unit = {},
     navigateToMe: () -> Unit = {}
 ) {
-    if(!logged) {
+    if (!logged) {
 
-    }
-    else if(!havingDirectory) {
+    } else if (!havingDirectory) {
 
     }
 
@@ -146,6 +150,7 @@ fun MainScreen(
     val (selectedTab, setSelectedTab) = rememberSaveable { mutableStateOf(0) }
     var isSelecting by rememberSaveable { mutableStateOf(false) }
     var selectedItems by rememberSaveable { mutableStateOf(setOf<Int>()) }
+    val isSearchDialogOpen = remember { mutableStateOf(false) }
 
     var isCreatingDirectory by rememberSaveable { mutableStateOf(false) }
 
@@ -194,7 +199,15 @@ fun MainScreen(
                                 .clickable { showBottomSheet = !showBottomSheet } // 使标题可点击
                         ) {
 //                            Text(directoryList[id.intValue].name)
-                            Text("全部笔记")
+                            try {
+                                val a: String = localUiState.directoryList[0].name
+                            } catch (e: Exception) {
+                                Log.e("directoryList", "Error inserting directory", e)
+                            }
+                            Log.d("add1", "after cache${localUiState.directoryList.size}")
+//                            Log.d("add1", "${localUiState.directoryList[0].time}")
+                            Text("a")
+//                            Text("全部笔记")
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
                                 imageVector = if (showBottomSheet) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -233,14 +246,14 @@ fun MainScreen(
                             )
                             Divider()
                             DropdownMenuItem(
-                                text = { Text("按修改时间排序") },
+                                text = { Text("按创建时间排序") },
                                 onClick = { sortOrder = "按创建时间排序"; showSortMenu = false },
                                 modifier = Modifier
                                     .fillMaxWidth()
                             )
                         }
 
-                        IconButton(onClick = { /* Handle search action */ }) {
+                        IconButton(onClick = { isSearchDialogOpen.value = true }) {
                             Icon(
                                 imageVector = Icons.Filled.Search,
                                 contentDescription = "搜索"
@@ -303,22 +316,21 @@ fun MainScreen(
                             onCancel = {
                                 isCreatingDirectory = false
                             },
-                            onSave = { name->
+                            onSave = { name ->
 //                                scope.launch {
-                                    directoryViewModel.insertDirectory(name)
-                                    isCreatingDirectory = false
+                                directoryViewModel.insertDirectory(name)
+                                isCreatingDirectory = false
 //                                }
                                 // todo:可以在这里添加逻辑，比如更新数据库或状态
                             }
                         )
-                    }
-                    else {
+                    } else {
                         BottomSheetContent(
                             onClose = {
                                 scope.launch { sheetState.hide() }
                                     .invokeOnCompletion { showBottomSheet = false }
                             },
-                            onCreateDirectory = {isCreatingDirectory = true},
+                            onCreateDirectory = { isCreatingDirectory = true },
 
                             onDirectoryClick = {
                                 id.intValue = it.id
@@ -404,15 +416,67 @@ fun MainScreen(
                     onSelect = { handleItemSelect(index) },
                     onLongPress = { handleLongPress(index) },
                     enterEditScreen = {
-                    //todo: 完成进入编辑界面的逻辑
+                        //todo: 完成进入编辑界面的逻辑
                     }
                 )
             }
             Spacer(Modifier.height(16.dp))
         }
     }
+
+    MainSearchDialog(isDialogOpen = isSearchDialogOpen, onSearch = { /* Handle search */ })
 }
 
+
+
+@Composable
+fun MainSearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit) {
+    if (isDialogOpen.value) {
+        val searchQuery = remember { mutableStateOf("") }
+        AlertDialog(
+            modifier = Modifier.fillMaxWidth(),
+            onDismissRequest = { isDialogOpen.value = false },
+            title = { Text("搜索") },
+            text = {
+                Column {
+                    TextField(
+                        value = searchQuery.value,
+                        onValueChange = { searchQuery.value = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(128.dp)),
+                        placeholder = { Text("请输入搜索内容") },
+                        textStyle = TextStyle(fontSize = 16.sp),
+                        colors = TextFieldDefaults.colors(
+                            cursorColor = Color.Black,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+//                            disabledIndicatorColor = Color.Transparent,
+//                            focusedContainerColor = Color.Transparent,
+//                            unfocusedContainerColor = Color.Transparent,
+//                            disabledContainerColor = Color.Transparent
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isDialogOpen.value = false
+                        onSearch(searchQuery.value)
+                    }
+                ) {
+                    Text("搜索", fontSize = 14.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { isDialogOpen.value = false }) {
+                    Text("取消", fontSize = 14.sp)
+                }
+            }
+        )
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpecialSyncCard(onIgnore: () -> Unit, onEnable: () -> Unit) {
