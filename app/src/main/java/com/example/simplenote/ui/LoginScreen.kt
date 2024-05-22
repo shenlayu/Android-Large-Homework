@@ -1,5 +1,6 @@
 package com.example.simplenote.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun LoginScreen(
     userViewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    navToMain: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
@@ -59,15 +61,34 @@ fun LoginScreen(
         )
         Button(
             onClick = {
-                scope.launch {
-                    if (userViewModel.checkUser(username, password)) {
-                            userViewModel.login(username)
-                    }
+                if (userViewModel.checkUser(username, password)) {
+                    Log.d("add1", "checkedUser")
+                    userViewModel.login(username)
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Login")
+        }
+        Button(
+            onClick = {
+                Log.d("add1", "clicked")
+                if(userViewModel.checkUserExist(username)) {
+                    println("user already exists")
+                }
+                else {
+                    userViewModel.insertUser(username = username, password = password)
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Register")
+        }
+        Button(
+            onClick = navToMain,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("跳转到Main")
         }
     }
 }

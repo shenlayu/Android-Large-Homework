@@ -7,26 +7,33 @@ import com.example.simplenote.data.NoteType
 import com.example.simplenote.data.NotebookWithNotes
 import com.example.simplenote.data.NotebooksRepository
 import com.example.simplenote.data.NotesRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class NoteViewModel(
     private val notebooksRepository: NotebooksRepository,
     private val notesRepository: NotesRepository,
 ): ViewModel() {
+    private val _uiState = MutableStateFlow((NoteUiState()))
+    val uiState: StateFlow<NoteUiState> = _uiState.asStateFlow()
     companion object {
         private const val TIMEOUT_MILLIS = 5_000L
     }
-    private var notebookState: StateFlow<NotebookState>? = null
-    var noteList = mutableListOf<NoteDetails>()
-    private var notebookID: Int? = null
-    private var deletedNoteList = mutableListOf<NoteDetails>()
+//    private var notebookState: StateFlow<NotebookState>? = null
+//    var noteList = mutableListOf<NoteDetails>()
+//    private var notebookID: Int? = null
+//    private var deletedNoteList = mutableListOf<NoteDetails>()
+
     fun init(notebookID_: Int? = null) { // 如果是更新已有notebook, 传入其id; 如果是创建新notebook, 传入null
         notebookID_?.let {nid ->
-            notebookState =
+            _uiState.value = _uiState.value.copy(
+                notebookState =
                 notebooksRepository.getNotebookWithNotes(nid)
                     .map { NotebookState(it) }
                     .stateIn(
@@ -34,42 +41,57 @@ class NoteViewModel(
                         started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
                         initialValue = NotebookState()
                     )
+            )
         }
-        noteList.clear()
-        notebookState?.value?.notebookWithNotes?.notes?.forEach { // 打进临时
-            noteList.add(it.toNoteDetails())
+        val newNoteList = emptyList<NoteDetails>().toMutableList()
+        _uiState.value.notebookState?.value?.notebookWithNotes?.notes?.forEach { // 打进临时
+            newNoteList.add(it.toNoteDetails())
         }
-        notebookID = notebookID_
+        _uiState.value = _uiState.value.copy(noteList = newNoteList, notebookID = notebookID_)
     }
-    fun getNoteList(list: MutableList<NoteDetails>) {
-        list.clear()
-        list.addAll(noteList)
-    }
+//    fun getNoteList(list: MutableList<NoteDetails>) {
+//        list.clear()
+//        list.addAll(noteList)
+//    }
 
-    suspend fun insertNote(listID: Int, content: String, type: NoteType) {
+    fun insertNote(listID: Int, content: String, type: NoteType) {
         val noteDetails: NoteDetails = NoteDetails(
-            notebookId = notebookID!!,
+            notebookId = _uiState.value.notebookID!!,
             content = content,
             type = type
         )
-        noteList.add(listID, noteDetails)
+        val newNoteList = _uiState.value.noteList.toMutableList().apply { add(listID, noteDetails) }
+        _uiState.value = _uiState.value.copy(noteList = newNoteList)
     }
-    suspend fun deleteNote(listID: Int) {
-        val note = noteList[listID].toNote()
-        noteList.removeAt(listID)
-        deletedNoteList.add(noteList[listID])
+    fun deleteNote(listID: Int) {
+        val newNoteList = _uiState.value.noteList.toMutableList().apply { removeAt(listID) }
+        val newDeletedList = _uiState.value.deletedNoteList.toMutableList().apply { add(_uiState.value.noteList[listID]) }
     }
-    suspend fun saveNotes() {
-        noteList.forEach {
-            val checkNote: Note? = notesRepository.getNoteStream(it.id).firstOrNull()
-            if(checkNote != null) { // 已经存在这条内容
-                notesRepository.updateNote(it.toNote())
-            } else {
-                notesRepository.insertNote(it.toNote())
+    fun changeNote(listID: Int, content: String, type: NoteType) {
+        val currentNoteDetails = _uiState.value.noteList[listID]
+        val newNoteDetails: NoteDetails = NoteDetails(
+            id = currentNoteDetails.id,
+            notebookId = currentNoteDetails.notebookId,
+            content = content,
+            type = type
+        )
+        val newNoteList = _uiState.value.noteList.toMutableList()
+        newNoteList[listID] = newNoteDetails
+        _uiState.value = _uiState.value.copy(noteList = newNoteList)
+    }
+    fun saveNotes() {
+        viewModelScope.launch {
+            _uiState.value.noteList.forEach {
+                val checkNote: Note? = notesRepository.getNoteStream(it.id).firstOrNull()
+                if(checkNote != null) { // 已经存在这条内容
+                    notesRepository.updateNote(it.toNote())
+                } else {
+                    notesRepository.insertNote(it.toNote())
+                }
             }
-        }
-        deletedNoteList.forEach {
-            notesRepository.deleteNote(it.toNote())
+            _uiState.value.deletedNoteList.forEach {
+                notesRepository.deleteNote(it.toNote())
+            }
         }
     }
 }
@@ -101,4 +123,11 @@ fun Note.toNoteDetails(): NoteDetails = NoteDetails(
     content = content,
     type = type,
     order = order
+)
+
+data class NoteUiState(
+    val notebookState: StateFlow<NotebookState>? = null,
+    val noteList: List<NoteDetails> = listOf<NoteDetails>(),
+    val notebookID: Int? = null,
+    val deletedNoteList: List<NoteDetails> = listOf<NoteDetails>(),
 )

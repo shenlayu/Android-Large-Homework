@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -87,17 +88,17 @@ fun MainScreen(
     directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
     notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    logged: Boolean = false,
-    havingDirectory: Boolean = false,
+//    logged: Boolean = false,
+//    havingDirectory: Boolean = false,
     navigateToEdit: ()->Unit = {},
     navigateToMe: () -> Unit = {}
 ) {
-    if(!logged) {
-
-    }
-    else if(!havingDirectory) {
-
-    }
+//    if(!logged) {
+//
+//    }
+//    else if(!havingDirectory) {
+//
+//    }
 
     // 本地维护一个directoryList
     val notebookList = remember {
@@ -193,8 +194,16 @@ fun MainScreen(
                             modifier = Modifier
                                 .clickable { showBottomSheet = !showBottomSheet } // 使标题可点击
                         ) {
-//                            Text(directoryList[id.intValue].name)
-                            Text("全部笔记")
+//                            Text(localUiState.directoryList[id.intValue].name)
+                            try {
+                                val a: String = localUiState.directoryList[0].name
+                            }  catch (e: Exception) {
+                                Log.e("directoryList", "Error inserting directory", e)
+                            }
+                            Log.d("add1", "after cache${localUiState.directoryList.size}")
+//                            Log.d("add1", "${localUiState.directoryList[0].time}")
+                            Text("a")
+//                            Text("全部笔记")
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
                                 imageVector = if (showBottomSheet) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -202,6 +211,7 @@ fun MainScreen(
                             )
                         }
                     },
+
 
                     navigationIcon = {
                         IconButton(onClick = { /* Handle avatar click */ }, modifier = Modifier.padding(start = 8.dp)) {
@@ -273,7 +283,7 @@ fun MainScreen(
                         scope.launch {
                             val index = notebookList.size
                             notebookViewModel.insertNotebook(name = "new")
-                            notebookViewModel.getNotebookList(notebookList)
+                            //notebookViewModel.getNotebookList(notebookList)
                             id.intValue = notebookList[index].id
                             noteViewModel.init(id.intValue)
 //                            navigateToEdit()
@@ -323,7 +333,7 @@ fun MainScreen(
                             onDirectoryClick = {
                                 id.intValue = it.id
                                 directoryViewModel.init(id.intValue)
-                                notebookViewModel.getNotebookList(notebookList)
+                                //notebookViewModel.getNotebookList(notebookList)
                             },
                             directories = localUiState.directoryList,
                             // todo:示例笔记本列表，根据实际需要进行调整
@@ -358,34 +368,20 @@ fun MainScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
         ) {
-//            Row() {
-//                val coroutineScope = rememberCoroutineScope()
-//                var idx: Int = 1
-//                Button(onClick = {
-//                    viewModel.init(1, "name")
-//                }) {
-//                }
-//                Button(onClick = {
-//                    viewModel.addText("halo${idx++}")
-//                }) {
-//                }
-//                Button(onClick = {
-//                    coroutineScope.launch {
-//                        viewModel.saveNotebook()
-//                    }
-//                }) {
-//                }
-            // }
-
-            TextField(
-                value = localUiState.SavedText,
-                onValueChange = {
-                    directoryViewModel.Updatetext((it))
-                },
-                singleLine = false,
-                maxLines = 4,
-                modifier = Modifier
-            )
+//            TextField(
+//                value = localUiState.SavedText,
+//                onValueChange = {
+//                    directoryViewModel.Updatetext((it))
+//                },
+//                singleLine = false,
+//                maxLines = 4,
+//                modifier = Modifier
+//            )
+            Button(modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    directoryViewModel.init(0)
+                }
+                ) {}
 
             if (showSyncCard) {
                 SpecialSyncCard(
