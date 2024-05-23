@@ -29,13 +29,15 @@ object AppViewModelProvider {
         initializer {
             UserViewModel(
                 noteApplication().container.usersRepository,
-                noteApplication().container.loggedUserRepository
+                noteApplication().container.loggedUserRepository,
+                noteApplication().container.directoriesRepository,
             )
         }
         initializer {
             DirectoryViewModel(
                 noteApplication().container.usersRepository,
-                noteApplication().container.directoriesRepository
+                noteApplication().container.directoriesRepository,
+                noteApplication().container.loggedUserRepository
             )
         }
         initializer {

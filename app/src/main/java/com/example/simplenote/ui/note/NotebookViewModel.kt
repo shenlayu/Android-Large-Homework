@@ -8,6 +8,7 @@ import com.example.simplenote.data.DirectoryWithNotebooks
 import com.example.simplenote.data.Notebook
 import com.example.simplenote.data.NotebooksRepository
 import com.example.simplenote.data.NotesRepository
+import com.example.simplenote.data.UserWithDirectories
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,29 +35,39 @@ class NotebookViewModel(
 //    var directoryID: Int? = null
 //    var sortType: SortType = SortType.Time
 
-    fun init(directoryID_: Int? = null) { // 更改页面时手动调用该函数
-        directoryID_?.let {did ->
-            _uiState.value = _uiState.value.copy(
-                directoryState =
-                directoriesRepository.getDirectoryWithNotebooks(did)
-                    .map { DirectoryState(it) }
-                    .stateIn(
-                        scope = viewModelScope,
-                        started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
-                        initialValue = DirectoryState()
-                    )
-            )
-        }
-        val newNotebookList = emptyList<NotebookDetails>().toMutableList()
-        _uiState.value.directoryState?.value?.directoryWithNotebooks?.notebooks?.forEach { // 打进临时
-            newNotebookList.add(it.toNotebookDetails())
-        }
-        _uiState.value = _uiState.value.copy(directoryID = directoryID_, notebookList = newNotebookList)
-    }
-//    fun getNotebookList(list: MutableList<NotebookDetails>) {
-//        list.clear()
-//        list.addAll(notebookList)
+//    fun init(directoryID_: Int? = null) { // 更改页面时手动调用该函数
+//        directoryID_?.let {did ->
+//            _uiState.value = _uiState.value.copy(
+//                directoryState =
+//                directoriesRepository.getDirectoryWithNotebooks(did)
+//                    .map { DirectoryState(it) }
+//                    .stateIn(
+//                        scope = viewModelScope,
+//                        started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
+//                        initialValue = DirectoryState()
+//                    )
+//            )
+//        }
+//        val newNotebookList = emptyList<NotebookDetails>().toMutableList()
+//        _uiState.value.directoryState?.value?.directoryWithNotebooks?.notebooks?.forEach { // 打进临时
+//            newNotebookList.add(it.toNotebookDetails())
+//        }
+//        _uiState.value = _uiState.value.copy(directoryID = directoryID_, notebookList = newNotebookList)
 //    }
+    fun init(directoryID: Int? = null) {
+        viewModelScope.launch {
+            directoryID?.let { did ->
+                val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(did).firstOrNull()!!
+                val newNotebookList = _uiState.value.notebookList.toMutableList()
+                directoryWithNotebooks.notebooks.forEach {
+                    newNotebookList.add(it.toNotebookDetails())
+                }
+                _uiState.value = _uiState.value.copy(notebookList = newNotebookList, directoryID = directoryID)
+            } ?: run {
+                _uiState.value = _uiState.value.copy(notebookList = emptyList(), directoryID = directoryID)
+            }
+        }
+    }
 
     private fun sortBySortType() {
         if(_uiState.value.sortType == SortType.Time) {
@@ -116,7 +127,7 @@ class NotebookViewModel(
             println("changeDirectoryName ERROR: No user found")
         }
     }
-    suspend fun changeNotebookTime(listID: Int) {
+    fun changeNotebookTime(listID: Int) {
         // TODO
     }
     fun getPreviewNote(listID: Int): NoteDetails? {
@@ -128,7 +139,7 @@ class NotebookViewModel(
 }
 
 data class NotebookUiState (
-    val directoryState: StateFlow<DirectoryState>? = null,
+//    val directoryState: StateFlow<DirectoryState>? = null,
     val notebookList: List<NotebookDetails> = listOf<NotebookDetails>(),
     val directoryID: Int? = null,
     val sortType: SortType = SortType.Time
