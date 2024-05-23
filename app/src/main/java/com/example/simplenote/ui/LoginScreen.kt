@@ -11,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,7 +33,7 @@ fun LoginScreen(
     userViewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navToMain: () -> Unit = {}
 ) {
-    val scope = rememberCoroutineScope()
+    val localUserUiState by userViewModel.uiState.collectAsState()
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -62,7 +63,7 @@ fun LoginScreen(
         Button(
             onClick = {
                 if (userViewModel.checkUser(username, password)) {
-                    Log.d("add1", "checkedUser")
+//                    Log.d("add1", "checkedUser")
                     userViewModel.login(username)
                 }
             },
@@ -85,7 +86,10 @@ fun LoginScreen(
             Text("Register")
         }
         Button(
-            onClick = navToMain,
+            onClick = {
+                navToMain()
+                Log.d("add1", "in logScreen ${localUserUiState.loggedUserDetails?.id}")
+                      },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("跳转到Main")

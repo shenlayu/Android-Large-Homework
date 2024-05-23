@@ -40,7 +40,7 @@ class OfflineNotesRepository(private val noteDao: NoteDao) : NotesRepository {
 
 class OfflineLoggedUserRepository(private val loggedUserDao: LoggedUserDao) : LoggedUserRepository {
     override suspend fun insertLoggedUser(loggedUser: LoggedUser) = loggedUserDao.insert(loggedUser)
-    override suspend fun deleteLoggedUser(loggedUser: LoggedUser) = loggedUserDao.insert(loggedUser)
-    override suspend fun updateLoggedUser(loggedUser: LoggedUser) = loggedUserDao.insert(loggedUser)
+    override suspend fun deleteLoggedUser(loggedUser: LoggedUser) = loggedUserDao.delete(loggedUser)
+    override suspend fun updateLoggedUser(loggedUser: LoggedUser) = loggedUserDao.update(loggedUser)
     override fun getLoggedUser() = loggedUserDao.getLoggedUser()
 }

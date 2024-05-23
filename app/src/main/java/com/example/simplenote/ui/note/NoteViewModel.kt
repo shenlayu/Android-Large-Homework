@@ -2,6 +2,7 @@ package com.example.simplenote.ui.note
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.simplenote.data.DirectoryWithNotebooks
 import com.example.simplenote.data.Note
 import com.example.simplenote.data.NoteType
 import com.example.simplenote.data.NotebookWithNotes
@@ -30,29 +31,40 @@ class NoteViewModel(
 //    private var notebookID: Int? = null
 //    private var deletedNoteList = mutableListOf<NoteDetails>()
 
-    fun init(notebookID_: Int? = null) { // 如果是更新已有notebook, 传入其id; 如果是创建新notebook, 传入null
-        notebookID_?.let {nid ->
-            _uiState.value = _uiState.value.copy(
-                notebookState =
-                notebooksRepository.getNotebookWithNotes(nid)
-                    .map { NotebookState(it) }
-                    .stateIn(
-                        scope = viewModelScope,
-                        started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
-                        initialValue = NotebookState()
-                    )
-            )
-        }
-        val newNoteList = emptyList<NoteDetails>().toMutableList()
-        _uiState.value.notebookState?.value?.notebookWithNotes?.notes?.forEach { // 打进临时
-            newNoteList.add(it.toNoteDetails())
-        }
-        _uiState.value = _uiState.value.copy(noteList = newNoteList, notebookID = notebookID_)
-    }
-//    fun getNoteList(list: MutableList<NoteDetails>) {
-//        list.clear()
-//        list.addAll(noteList)
+//    fun init(notebookID_: Int? = null) { // 如果是更新已有notebook, 传入其id; 如果是创建新notebook, 传入null
+//        notebookID_?.let {nid ->
+//            _uiState.value = _uiState.value.copy(
+//                notebookState =
+//                notebooksRepository.getNotebookWithNotes(nid)
+//                    .map { NotebookState(it) }
+//                    .stateIn(
+//                        scope = viewModelScope,
+//                        started = SharingStarted.WhileSubscribed(TIMEOUT_MILLIS),
+//                        initialValue = NotebookState()
+//                    )
+//            )
+//        }
+//        val newNoteList = emptyList<NoteDetails>().toMutableList()
+//        _uiState.value.notebookState?.value?.notebookWithNotes?.notes?.forEach { // 打进临时
+//            newNoteList.add(it.toNoteDetails())
+//        }
+//        _uiState.value = _uiState.value.copy(noteList = newNoteList, notebookID = notebookID_)
 //    }
+
+    fun init(notebookId: Int? = null) {
+        viewModelScope.launch {
+            notebookId?.let { nid ->
+                val notebookWithNotes: NotebookWithNotes = notebooksRepository.getNotebookWithNotes(nid).firstOrNull()!!
+                val newNoteList = _uiState.value.noteList.toMutableList()
+                notebookWithNotes.notes.forEach {
+                    newNoteList.add(it.toNoteDetails())
+                }
+                _uiState.value = _uiState.value.copy(noteList = newNoteList, notebookID = notebookId)
+            } ?: run {
+                _uiState.value = _uiState.value.copy(noteList = emptyList(), notebookID = notebookId)
+            }
+        }
+    }
 
     fun insertNote(listID: Int, content: String, type: NoteType) {
         val noteDetails: NoteDetails = NoteDetails(
