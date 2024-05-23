@@ -83,12 +83,14 @@ import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookDetails
 import com.example.simplenote.ui.note.NotebookViewModel
+import com.example.simplenote.ui.note.UserViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun MainScreen(
+    userViewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory),
     directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
     notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
@@ -105,36 +107,21 @@ fun MainScreen(
 //    }
   
     // 本地维护一个directoryList
-    val notebookList = remember {
-        mutableStateListOf<NotebookDetails>()
-    }
-    val isFirstLaunch = rememberSaveable { mutableStateOf(true) } // 添加这个状态变量
+//    val notebookList = remember {
+//        mutableStateListOf<NotebookDetails>()
+//    }
+
     val id = rememberSaveable {
         mutableIntStateOf(0)
     }
-    val localUiState by directoryViewModel.uiState.collectAsState()
-    //val localDirectoryList = directoryViewModel.directoryList.value
+    val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
+    val localNotebookUiState by notebookViewModel.uiState.collectAsState()
+    val localUserUiState by userViewModel.uiState.collectAsState()
+    Log.d("add1", "launched notebook size ${localNotebookUiState.notebookList.size}")
 
-    //directoryViewModel.init(0)
-    // val directoryList = localUiState.directoryList
+
     var currentDirectory by rememberSaveable { mutableStateOf<DirectoryDetails?>(null) }
 
-    directoryViewModel.backdoor()
-    Log.d("add1", "${localUiState.directoryList.size}")
-
-    if (isFirstLaunch.value) {
-        // Initialize directory view model with user ID (assuming 1 for
-        // now)
-        isFirstLaunch.value = false
-        directoryViewModel.insertDirectory("全部笔记")
-        Log.d("add1", "全")
-        directoryViewModel.insertDirectory("未分类")
-        Log.d("add1", "未")
-        directoryViewModel.insertDirectory("最近删除")
-        Log.d("add1", "最")
-    }
-
-//    notebookViewModel.getNotebookList(notebookList) // 因为要显示的notebook改变了
 
     val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     var showMenu by rememberSaveable { mutableStateOf(false) }
@@ -154,6 +141,15 @@ fun MainScreen(
     val isSearchDialogOpen = remember { mutableStateOf(false) }
 
     var isCreatingDirectory by rememberSaveable { mutableStateOf(false) }
+
+    val isFirstLaunch = rememberSaveable { mutableStateOf(true) } // 添加这个状态变量
+    if(localDirectoryUiState.directoryList.isNotEmpty()) {
+        if(isFirstLaunch.value) {
+            isFirstLaunch.value = false
+            notebookViewModel.init(localDirectoryUiState.directoryList[0].id)
+        }
+    }
+
 
     fun clearSelection() {
         isSelecting = false
@@ -200,14 +196,19 @@ fun MainScreen(
                                 .clickable { showBottomSheet = !showBottomSheet } // 使标题可点击
                         ) {
 //                            Text(localUiState.directoryList[id.intValue].name)
-                            try {
-                                val a: String = localUiState.directoryList[0].name
-                            }  catch (e: Exception) {
-                                Log.e("directoryList", "Error inserting directory", e)
+//                            try {
+//                                val a: String = localUiState.directoryList[0].name
+//                            }  catch (e: Exception) {
+//                                Log.e("directoryList", "Error inserting directory", e)
+//                            }
+//                            Log.d("add1", "after cache${localDirectoryUiState.directoryList.size}")
+                            if(localDirectoryUiState.directoryList.size != 0) {
+                                Text(localDirectoryUiState.directoryList[0].name)
                             }
-                            Log.d("add1", "after cache${localUiState.directoryList.size}")
-//                            Log.d("add1", "${localUiState.directoryList[0].time}")
-                            Text("a")
+                            else {
+                                Text("LOADING")
+                            }
+
 //                            Text("全部笔记")
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
@@ -278,21 +279,21 @@ fun MainScreen(
                     }
                 )
             }
-
-
         },
         floatingActionButton = {
             if (!isSelecting) {
                 FloatingActionButton(
                     onClick = {
-                        scope.launch {
-                            val index = notebookList.size
-                            notebookViewModel.insertNotebook(name = "new")
-                            //notebookViewModel.getNotebookList(notebookList)
-                            id.intValue = notebookList[index].id
-                            noteViewModel.init(id.intValue)
-//                            navigateToEdit()
-                        }
+//                        scope.launch {
+//                            val index = notebookList.size
+//                            notebookViewModel.insertNotebook(name = "new")
+//                            //notebookViewModel.getNotebookList(notebookList)
+//                            id.intValue = notebookList[index].id
+//                            noteViewModel.init(id.intValue)
+////                            navigateToEdit()
+//                        }
+                        notebookViewModel.insertNotebook(name = "new")
+
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
@@ -314,7 +315,7 @@ fun MainScreen(
                 ) {
                     if (isCreatingDirectory) {
                         CreateDirectorySheet(
-                            directories = localUiState.directoryList,
+                            directories = localDirectoryUiState.directoryList,
                             onCancel = {
                                 isCreatingDirectory = false
                             },
@@ -339,7 +340,7 @@ fun MainScreen(
                                 directoryViewModel.init(id.intValue)
                                 //notebookViewModel.getNotebookList(notebookList)
                             },
-                            directories = localUiState.directoryList,
+                            directories = localDirectoryUiState.directoryList,
                             // todo:示例笔记本列表，根据实际需要进行调整
                             directoryViewModel = directoryViewModel
                         )
@@ -381,11 +382,11 @@ fun MainScreen(
 //                maxLines = 4,
 //                modifier = Modifier
 //            )
-            Button(modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    directoryViewModel.init(0)
-                }
-                ) {}
+//            Button(modifier = Modifier.fillMaxWidth(),
+//                onClick = {
+//                    directoryViewModel.init(0)
+//                }
+//                ) {}
 
             if (showSyncCard) {
                 SpecialSyncCard(
@@ -393,20 +394,25 @@ fun MainScreen(
                     onEnable = { /* Handle enable action */ }
                 )
             }
-            repeat(99) { index ->  // 保持99个项目以达到100个
-                CustomListItem(
-                    index = index,
-                    text = "$index. 主要标题",
-                    subText1 = if (index % 2 == 0) "次要信息" else null,
-                    subText2 = "附加信息",
-                    isSelecting = isSelecting,
-                    isSelected = selectedItems.contains(index),
-                    onSelect = { handleItemSelect(index) },
-                    onLongPress = { handleLongPress(index) },
-                    enterEditScreen = {
-                        //todo: 完成进入编辑界面的逻辑
-                    }
-                )
+//            repeat(99) { index ->  // 保持99个项目以达到100个
+//                CustomListItem(
+//                    index = index,
+//                    text = "$index. 主要标题",
+//                    subText1 = if (index % 2 == 0) "次要信息" else null,
+//                    subText2 = "附加信息",
+//                    isSelecting = isSelecting,
+//                    isSelected = selectedItems.contains(index),
+//                    onSelect = { handleItemSelect(index) },
+//                    onLongPress = { handleLongPress(index) },
+//                    enterEditScreen = {
+//                    //todo: 完成进入编辑界面的逻辑
+//                    }
+//                )
+//            }
+            localNotebookUiState.notebookList.forEach {
+                Card() {
+                    Text("new")
+                }
             }
             Spacer(Modifier.height(16.dp))
         }
