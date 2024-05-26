@@ -80,6 +80,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
 import com.example.simplenote.ui.note.DirectoryDetails
 import com.example.simplenote.ui.note.DirectoryViewModel
+import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookDetails
 import com.example.simplenote.ui.note.NotebookViewModel
@@ -302,7 +303,7 @@ fun MainScreen(
                         notebookViewModel.insertNotebook("new")
 //                        Log.d("add1", "local notebookList size ${localNotebookUiState.notebookList.size}")
                         val newNotebookId = notebookViewModel.uiState.value.notebookList.last().id
-                        noteViewModel.init(newNotebookId)
+                        noteViewModel.initFirst(newNotebookId)
                         navigateToEdit()
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
@@ -423,12 +424,19 @@ fun MainScreen(
             var index = 0
             localNotebookUiState.notebookList.forEach {
                 index ++
+                Log.d("add1", "wow $index ${it.id}")
                 // 保持99个项目以达到100个
+                val noteTitle = notebookViewModel.getTitleNote(it.id)
+                val noteFirst = notebookViewModel.getFirstNote(it.id)
+                val noteSecond = notebookViewModel.getSecondNote(it.id)
+//                val noteTitle: NoteDetails? = null
+//                val noteFirst: NoteDetails? = null
+//                val noteSecond: NoteDetails? = null
                 CustomListItem(
                     index = index,
-                    text = "$index. 主要标题",
-                    subText1 = if (index % 2 == 0) "次要信息" else null,
-                    subText2 = "附加信息",
+                    text = noteTitle?.content ?: "",
+                    subText1 = noteFirst?.content ?: "",
+                    subText2 = noteSecond?.content ?: "",
                     isSelecting = isSelecting,
                     isSelected = selectedItems.contains(index),
                     onSelect = { handleItemSelect(index) },

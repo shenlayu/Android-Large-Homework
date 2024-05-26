@@ -54,6 +54,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -232,9 +233,13 @@ fun EditorScreen(
     val noteList = remember {
         mutableListOf<NoteDetails>()
     }
-    Log.d("add1", "note size ${localNoteUiState.noteList.size}")
-    contentItems.value = convertToContentItemList(localNoteUiState.noteList).toMutableList()
 
+    var canLaunch by rememberSaveable { mutableStateOf(true) }
+//    Log.d("add1", "out ${localNoteUiState.noteList.size}")
+    if(canLaunch and localNoteUiState.noteList.isNotEmpty()) {
+        contentItems.value = convertToContentItemList(localNoteUiState.noteList).toMutableList()
+        canLaunch = false
+    }
 
     var bottomPadding by remember { mutableStateOf(0.dp) }
 
@@ -259,6 +264,7 @@ fun EditorScreen(
             onSearch = {isSearchDialogOpen.value = true},
             onDone = {
                 noteViewModel.saveNotes(contentItems.value)
+                canLaunch = true
             }
         ) },
         bottomBar = {

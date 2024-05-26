@@ -136,9 +136,27 @@ class NotebookViewModel(
     fun changeNotebookTime(listID: Int) {
         // TODO
     }
-    fun getPreviewNote(listID: Int): NoteDetails? {
+    fun getTitleNote(notebookID: Int): NoteDetails? {
+        val notes = runBlocking {
+            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes
+        }
+        var noteDetails: NoteDetails? = null
+        notes?.forEach {
+            if(it.isTitle == true) {
+                noteDetails = it.toNoteDetails()
+            }
+        }
+        return noteDetails
+    }
+    fun getFirstNote(notebookID: Int): NoteDetails? {
         val note = runBlocking {
-            notebookRepository.getNotebookWithNotes(_uiState.value.notebookList[listID].id).firstOrNull()?.notes?.firstOrNull()
+            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes?.getOrNull(0)
+        }
+        return note?.toNoteDetails()
+    }
+    fun getSecondNote(notebookID: Int): NoteDetails? {
+        val note = runBlocking {
+            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes?.getOrNull(1)
         }
         return note?.toNoteDetails()
     }

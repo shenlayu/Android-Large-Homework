@@ -111,10 +111,7 @@ class NoteViewModel(
 //    }
 
     fun init(notebookID: Int) {
-//        _uiState.value = _uiState.value.copy(notebookId = notebookID)
-
-        // todo 处理新建notebook
-        viewModelScope.launch {
+        runBlocking {
             val notebookWithNotes: NotebookWithNotes = notebooksRepository.getNotebookWithNotes(notebookID).firstOrNull()!!
             val newNoteList = emptyList<NoteDetails>().toMutableList()
             notebookWithNotes.notes.forEach {
@@ -123,6 +120,37 @@ class NoteViewModel(
             _uiState.value = _uiState.value.copy(noteList = newNoteList, notebookId = notebookID)
         }
     }
+    fun initFirst(notebookID: Int) { // 新建时的init
+        val newNoteList = emptyList<NoteDetails>().toMutableList()
+        newNoteList.add(
+            NoteDetails(
+                notebookId = notebookID,
+                content = "新建笔记本",
+                type = NoteType.Text,
+                order = 0,
+                isTitle = true
+            )
+        )
+        newNoteList.add(
+            NoteDetails(
+                notebookId = notebookID,
+                content = "内容",
+                type = NoteType.Text,
+                order = 1,
+                isTitle = false
+            )
+        )
+        runBlocking {
+            newNoteList.forEach {
+                notesRepository.insertNote(it.toNote())
+            }
+        }
+        runBlocking {
+            init(notebookID)
+        }
+//        Log.d("add1", "in ${_uiState.value.noteList.size}")
+    }
+
     fun convertContentItemToNoteDetails(contentItem: ContentItem): NoteDetails {
         var noteDetails: NoteDetails = NoteDetails()
         when (contentItem) {
