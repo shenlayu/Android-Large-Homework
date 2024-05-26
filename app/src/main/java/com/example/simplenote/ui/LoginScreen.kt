@@ -88,7 +88,6 @@ fun LoginScreen(
         Button(
             onClick = {
                 navToMain()
-                Log.d("add1", "in logScreen ${localUserUiState.loggedUserDetails?.id}")
                       },
             modifier = Modifier.fillMaxWidth()
         ) {

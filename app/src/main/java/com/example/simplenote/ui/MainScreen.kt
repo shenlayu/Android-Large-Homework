@@ -117,7 +117,7 @@ fun MainScreen(
     val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
     val localNotebookUiState by notebookViewModel.uiState.collectAsState()
     val localUserUiState by userViewModel.uiState.collectAsState()
-    Log.d("add1", "launched notebook size ${localNotebookUiState.notebookList.size}")
+//    Log.d("add1", "launched notebook size ${localNotebookUiState.notebookList.size}")
 
 
     var currentDirectory by rememberSaveable { mutableStateOf<DirectoryDetails?>(null) }
@@ -202,8 +202,15 @@ fun MainScreen(
 //                                Log.e("directoryList", "Error inserting directory", e)
 //                            }
 //                            Log.d("add1", "after cache${localDirectoryUiState.directoryList.size}")
+                            var listID: Int = 0
+                            for(idx in 0..<localDirectoryUiState.directoryList.size) {
+                                if(localDirectoryUiState.directoryList[idx].id == id.intValue) {
+                                    listID = idx
+                                    break
+                                }
+                            }
                             if(localDirectoryUiState.directoryList.size != 0) {
-                                Text(localDirectoryUiState.directoryList[0].name)
+                                Text(localDirectoryUiState.directoryList[listID].name)
                             }
                             else {
                                 Text("LOADING")
@@ -292,8 +299,11 @@ fun MainScreen(
 //                            noteViewModel.init(id.intValue)
 ////                            navigateToEdit()
 //                        }
-                        notebookViewModel.insertNotebook(name = "new")
-
+                        notebookViewModel.insertNotebook("new")
+//                        Log.d("add1", "local notebookList size ${localNotebookUiState.notebookList.size}")
+                        val newNotebookId = notebookViewModel.uiState.value.notebookList.last().id
+                        noteViewModel.init(newNotebookId)
+                        navigateToEdit()
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
@@ -337,7 +347,8 @@ fun MainScreen(
 
                             onDirectoryClick = {
                                 id.intValue = it.id
-                                directoryViewModel.init(id.intValue)
+//                                Log.d("add1", "directoryid: ${it.id}")
+                                notebookViewModel.init(id.intValue)
                                 //notebookViewModel.getNotebookList(notebookList)
                             },
                             directories = localDirectoryUiState.directoryList,
@@ -409,10 +420,25 @@ fun MainScreen(
 //                    }
 //                )
 //            }
+            var index = 0
             localNotebookUiState.notebookList.forEach {
-                Card() {
-                    Text("new")
-                }
+                index ++
+                // 保持99个项目以达到100个
+                CustomListItem(
+                    index = index,
+                    text = "$index. 主要标题",
+                    subText1 = if (index % 2 == 0) "次要信息" else null,
+                    subText2 = "附加信息",
+                    isSelecting = isSelecting,
+                    isSelected = selectedItems.contains(index),
+                    onSelect = { handleItemSelect(index) },
+                    onLongPress = { handleLongPress(index) },
+                    enterEditScreen = {
+                        //todo: 完成进入编辑界面的逻辑
+                        noteViewModel.init(it.id)
+                        navigateToEdit()
+                    }
+                )
             }
             Spacer(Modifier.height(16.dp))
         }

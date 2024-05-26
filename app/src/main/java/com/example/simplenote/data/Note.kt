@@ -2,7 +2,6 @@ package com.example.simplenote.data
 
 import androidx.room.Embedded
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 
@@ -14,7 +13,9 @@ data class User(
     val id: Int,
     val username: String,
     val password: String,
-    val photo: String
+    val photo: String,
+    val nickname: String,
+    val avatar: String
 )
 
 // 文件夹
@@ -45,7 +46,8 @@ data class Note(
     val content: String,
     val type: NoteType?,
     val notebookId: Int,
-    val order: Int
+    val order: Int,
+    val isTitle: Boolean
 )
 
 @Entity(tableName = "loggedUser")
@@ -87,5 +89,6 @@ data class NotebookWithNotes(
 enum class NoteType {
     Text,
     Photo,
-    Audio
+    Audio,
+    Video
 }

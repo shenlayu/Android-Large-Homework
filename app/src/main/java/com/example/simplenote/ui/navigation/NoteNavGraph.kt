@@ -43,7 +43,7 @@ fun NoteNavHost(
 //    val userViewModel: UserViewModel =  viewModel(factory = AppViewModelProvider.Factory)
 //    val directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
 //    val notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory)
-//    val noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    val noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
 
     NavHost(
         navController = navController,
@@ -54,7 +54,7 @@ fun NoteNavHost(
             MainScreen(
 //                directoryViewModel = directoryViewModel,
 //                notebookViewModel = notebookViewModel,
-//                noteViewModel = noteViewModel,
+                noteViewModel = noteViewModel,
                 navigateToEdit = { navController.navigate(pages.Edit.name) }
             )
         }
@@ -62,9 +62,9 @@ fun NoteNavHost(
         composable(route = pages.Edit.name) {
             EditorScreen(
                 contentItems,
-//                noteViewModel = noteViewModel,
+                noteViewModel = noteViewModel,
                 navigateToMain = { navController.navigate(pages.Main.name) },
-                navigateBack = { navController.navigateUp() }
+                navigateBack = { navController.navigateUp() },
             )
         }
         // 登录注册界面
