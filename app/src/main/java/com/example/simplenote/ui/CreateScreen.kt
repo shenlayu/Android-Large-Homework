@@ -44,6 +44,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -121,7 +123,32 @@ sealed class ContentItem {
             return VideoItem(videoUri)
         }
     }
+}
 
+@Composable
+fun covertNoteDetailsToContentItem (noteDetails: NoteDetails): ContentItem {
+    var contentItem: ContentItem? = null
+    if(noteDetails.type == NoteType.Text) {
+        contentItem = ContentItem.TextItem(
+            text = remember { mutableStateOf(TextFieldValue(noteDetails.content)) },
+            isTitle = noteDetails.isTitle
+        )
+    }
+    else if(noteDetails.type == NoteType.Photo) {
+        contentItem = ContentItem.ImageItem(Uri.parse(noteDetails.content))
+    }
+    else if(noteDetails.type == NoteType.Audio) {
+        contentItem = ContentItem.AudioItem(Uri.parse(noteDetails.content))
+    }
+    return contentItem!!
+}
+@Composable
+fun convertToContentItemList(noteDetailsList: List<NoteDetails>): List<ContentItem> {
+    val contentItemList: MutableList<ContentItem> = emptyList<ContentItem>().toMutableList()
+    noteDetailsList.forEach {
+        contentItemList.add(covertNoteDetailsToContentItem(it))
+    }
+    return contentItemList
 }
 
 
@@ -158,23 +185,6 @@ val sampleTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("正文"
 
 val contentItems = mutableStateOf(mutableListOf<ContentItem>(sampleTitleItem, sampleTextItem))
 
-@Composable
-fun covertNoteToContentItem (note: NoteDetails): ContentItem {
-    var contentItem: ContentItem? = null
-    if(note.type == NoteType.Text) {
-        contentItem = ContentItem.TextItem(
-            text = remember { mutableStateOf(TextFieldValue(note.content)) }
-        )
-    }
-    else if(note.type == NoteType.Photo) {
-        contentItem = ContentItem.ImageItem(Uri.parse(note.content))
-    }
-    else if(note.type == NoteType.Audio) {
-        contentItem = ContentItem.AudioItem(Uri.parse(note.content))
-    }
-    return contentItem!!
-}
-
 // 预览编辑界面
 @Preview
 @Composable
@@ -200,20 +210,18 @@ fun EditorScreen(
     contentItems: MutableState<MutableList<ContentItem>>,
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateToMain: () -> Unit = {},
-    navigateBack: () -> Unit = {}
-
+    navigateBack: () -> Unit = {},
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val currentDate = remember { dateFormat.format(Date()) }
     val isAIDialogOpen = remember { mutableStateOf(false) }
     val isSearchDialogOpen = remember { mutableStateOf(false) }
-
+    val localNoteUiState by noteViewModel.uiState.collectAsState()
     val noteList = remember {
         mutableListOf<NoteDetails>()
     }
-
-//    noteViewModel.insertNote(-1, "标题", type = NoteType.Text)
-
+    Log.d("add1", "note size ${localNoteUiState.noteList.size}")
+    contentItems.value = convertToContentItemList(localNoteUiState.noteList).toMutableList()
 
 
     // 改为直接计算字符串的长度，适用于中文字符的统计
@@ -224,11 +232,16 @@ fun EditorScreen(
         }
     }
     val notebookName = "我的笔记本" // 假设笔记本名称是固定的，实际使用中可能来自外部数据源
+//    val a = convertToNoteDetailsList(contentItems.value, )
     Scaffold(
         topBar = { EditorTopBar(
+            onBack = navigateBack,
             onUndo = { undo(contentItems = contentItems)},
             onRedo = { redo(contentItems)},
-            onSearch = {isSearchDialogOpen.value = true}
+            onSearch = {isSearchDialogOpen.value = true},
+            onDone = {
+                noteViewModel.saveNotes(contentItems.value)
+            }
         ) },
         bottomBar = {
             ControlPanel(contentItems, LocalContext.current, onAIClick = {isAIDialogOpen.value = true})
@@ -255,7 +268,6 @@ fun EditorScreen(
     SearchDialog(isDialogOpen = isSearchDialogOpen) {
 
     }
-
 }
 
 // 在topbar和底下的编辑区之间加一行小字，小字显示分三栏，分别显示当前日期、该笔记总字数、该笔记所属笔记本名称
@@ -310,13 +322,11 @@ fun InfoBar(currentDate: String, totalCharacters: Int, notebookName: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorTopBar(onUndo: () -> Unit, onRedo: () -> Unit, onSearch: () -> Unit) {
+fun EditorTopBar(onBack: () -> Unit = {}, onUndo: () -> Unit, onRedo: () -> Unit, onSearch: () -> Unit, onDone: () -> Unit) {
     TopAppBar(
         title = {},
         navigationIcon = {
-            IconButton(onClick = {
-                // Handle back navigation
-            }) {
+            IconButton(onClick = onBack) {
                 Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_arrow_back_24), contentDescription = "Back")
             }
         },
@@ -335,9 +345,7 @@ fun EditorTopBar(onUndo: () -> Unit, onRedo: () -> Unit, onSearch: () -> Unit) {
                 Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_search_24), contentDescription = "Search")
             }
             // Done button
-            IconButton(onClick = {
-                // Handle done action
-            }) {
+            IconButton(onClick =onDone) {
                 Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_check_24), contentDescription = "Done")
             }
         }
@@ -921,12 +929,15 @@ fun DisplayAudioItem(
         }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            AudioPlayerUI(audioItem, context, Modifier.scale(scale.value).pointerInput(Unit) {
-                detectTapGestures(onLongPress = {
-                    triggerVibration()
-                    showOptions.value = !showOptions.value
-                })
-            })
+            AudioPlayerUI(audioItem, context,
+                Modifier
+                    .scale(scale.value)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = {
+                            triggerVibration()
+                            showOptions.value = !showOptions.value
+                        })
+                    })
 
             if (showOptions.value) {
                 Popup(

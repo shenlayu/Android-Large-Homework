@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.simplenote.data.DirectoriesRepository
 import com.example.simplenote.data.LoggedUser
 import com.example.simplenote.data.LoggedUserRepository
-import com.example.simplenote.data.NotesRepository
 import com.example.simplenote.data.User
 import com.example.simplenote.data.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -155,19 +154,25 @@ data class UserDetails(
     val id: Int = 0,
     val username: String = "",
     var password: String = "",
-    val photo: String = ""
+    val photo: String = "",
+    val nickname: String = "",
+    val avatar: String = ""
 )
 fun UserDetails.toUser(): User = User(
     id = id,
     username = username,
     password = password,
-    photo = photo
+    photo = photo,
+    nickname = nickname,
+    avatar = avatar
 )
 fun User.toUserDetails(): UserDetails = UserDetails(
     id = id,
     username = username,
     password = password,
-    photo = photo
+    photo = photo,
+    nickname = nickname,
+    avatar = avatar
 )
 data class LoggedUserUiState (
     val loggedUserDetails: LoggedUserDetails? = null

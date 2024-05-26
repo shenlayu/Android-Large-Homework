@@ -58,7 +58,7 @@ class NotebookViewModel(
         viewModelScope.launch {
             directoryID?.let { did ->
                 val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(did).firstOrNull()!!
-                val newNotebookList = _uiState.value.notebookList.toMutableList()
+                val newNotebookList = emptyList<NotebookDetails>().toMutableList()
                 directoryWithNotebooks.notebooks.forEach {
                     newNotebookList.add(it.toNotebookDetails())
                 }
@@ -69,7 +69,8 @@ class NotebookViewModel(
         }
     }
 
-    private fun sortBySortType() {
+
+    fun sortBySortType() {
         if(_uiState.value.sortType == SortType.Time) {
             val newNotebookList = _uiState.value.notebookList.toMutableList()
             newNotebookList.sortBy { it.time }
@@ -85,6 +86,7 @@ class NotebookViewModel(
         _uiState.value = _uiState.value.copy(sortType = sortTypeTo)
     }
     fun insertNotebook(name: String) {
+//        Log.d("add1", "directoryId ${_uiState.value.directoryID}")
         val notebookDetails: NotebookDetails = NotebookDetails(
             name = name,
             directoryId = _uiState.value.directoryID!!,
@@ -92,13 +94,17 @@ class NotebookViewModel(
         )
         val newNotebookList = _uiState.value.notebookList.toMutableList().apply{ add(notebookDetails) }
         _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
-        sortBySortType()
-        viewModelScope.launch {
-            try {
-                notebookRepository.insertNotebook(notebookDetails.toNotebook())
-            } catch (e: Exception) {
-                Log.e("NotebookViewModel", "Error inserting notebook", e)
+//        Log.d("add1", "list size ${_uiState.value.notebookList.size}")
+        runBlocking {
+            notebookRepository.insertNotebook(notebookDetails.toNotebook())
+        }
+        runBlocking {
+            val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(_uiState.value.directoryID!!).firstOrNull()!!
+            val newNotebookListWithId = emptyList<NotebookDetails>().toMutableList()
+            directoryWithNotebooks.notebooks.forEach {
+                newNotebookListWithId.add(it.toNotebookDetails())
             }
+            _uiState.value = _uiState.value.copy(notebookList = newNotebookListWithId)
         }
     }
     fun deleteNotebook(listID: Int) {
