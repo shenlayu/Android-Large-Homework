@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -101,13 +102,17 @@ class DirectoryViewModel(
         )
         val newDirectoryList = _uiState.value.directoryList.toMutableList().apply { add(directoryDetails) }
         _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
-        sortBySortType()
-        viewModelScope.launch {
-            try {
-                directoriesRepository.insertDirectory(directoryDetails.toDirectory())
-            } catch (e: Exception) {
-                Log.e("DirectoryViewModel", "Error inserting directory", e)
+//        sortBySortType()
+        runBlocking {
+            directoriesRepository.insertDirectory(directoryDetails.toDirectory())
+        }
+        runBlocking {
+            val userWithDirectories: UserWithDirectories = usersRepository.getUserWithDirectories(_uiState.value.userID!!).firstOrNull()!!
+            val newDirectoryListWithId = emptyList<DirectoryDetails>().toMutableList()
+            userWithDirectories.directories.forEach {
+                newDirectoryListWithId.add(it.toDirectoryDetails())
             }
+            _uiState.value = _uiState.value.copy(directoryList = newDirectoryListWithId)
         }
     }
     fun deleteDirectory(listID: Int) {
