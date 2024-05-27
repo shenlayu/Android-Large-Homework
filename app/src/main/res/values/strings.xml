@@ -4,5 +4,9 @@
     <string name="Main">预览</string>
     <string name="back">返回</string>
     <string name="Me">我的</string>
+    <string name="Login">登录</string>
+    <string name="Register">注册</string>
+    <string name="Welcome">欢迎</string>
+    <string name="Password">设置密码</string>
 
 </resources>

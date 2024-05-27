@@ -51,7 +51,7 @@ class DirectoryViewModel(
         viewModelScope.launch {
             val userID: Int? = loggedUserRepository.getLoggedUser().firstOrNull()?.firstOrNull()?.userId
             userID?.let { uid ->
-                val userWithDirectories: UserWithDirectories = usersRepository.getNotebookWithNotes(uid).firstOrNull()!!
+                val userWithDirectories: UserWithDirectories = usersRepository.getUserWithDirectories(uid).firstOrNull()!!
                 val newDirectoryList = emptyList<DirectoryDetails>().toMutableList()
                 userWithDirectories.directories.forEach {
                     newDirectoryList.add(it.toDirectoryDetails())
@@ -66,7 +66,7 @@ class DirectoryViewModel(
 //        Log.d("add1", "in init")
         viewModelScope.launch {
             userID?.let { uid ->
-                val userWithDirectories: UserWithDirectories = usersRepository.getNotebookWithNotes(uid).firstOrNull()!!
+                val userWithDirectories: UserWithDirectories = usersRepository.getUserWithDirectories(uid).firstOrNull()!!
                 val newDirectoryList = emptyList<DirectoryDetails>().toMutableList()
                 userWithDirectories.directories.forEach {
                     newDirectoryList.add(it.toDirectoryDetails())

@@ -13,7 +13,6 @@ data class User(
     val id: Int,
     val username: String,
     val password: String,
-    val photo: String,
     val nickname: String,
     val avatar: String
 )

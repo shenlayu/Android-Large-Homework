@@ -1,9 +1,5 @@
 package com.example.simplenote.data
 
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 // 映射Dao的接口，将对database对操作封装为对用户的接口
@@ -12,7 +8,8 @@ interface UsersRepository {
     suspend fun updateUser(user: User)
     suspend fun deleteUser(user: User)
     fun searchUser(username: String): Flow<User>
-    fun getNotebookWithNotes(id : Int): Flow<UserWithDirectories>
+    fun searchUserById(id: Int): Flow<User>
+    fun getUserWithDirectories(id : Int): Flow<UserWithDirectories>
 }
 
 interface DirectoriesRepository {
@@ -39,6 +36,7 @@ interface NotesRepository {
     suspend fun insertNote(note: Note)
     suspend fun deleteNote(note: Note)
     suspend fun updateNote(note: Note)
+    fun searchNote(content: String): Flow<List<Note>>
 }
 
 interface LoggedUserRepository {

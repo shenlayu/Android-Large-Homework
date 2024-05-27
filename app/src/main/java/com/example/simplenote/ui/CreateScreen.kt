@@ -149,6 +149,7 @@ fun covertNoteDetailsToContentItem (noteDetails: NoteDetails): ContentItem {
     }
     else if(noteDetails.type == NoteType.Photo) {
         contentItem = ContentItem.ImageItem(Uri.parse(noteDetails.content))
+        Log.d("add1", "convert photo ${noteDetails.content}")
     }
     else if(noteDetails.type == NoteType.Audio) {
         contentItem = ContentItem.AudioItem(Uri.parse(noteDetails.content))

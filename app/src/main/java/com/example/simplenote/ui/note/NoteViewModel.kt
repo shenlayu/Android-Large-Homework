@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -189,12 +190,10 @@ class NoteViewModel(
             }
         }
 
-//        Log.d("add1", "before convert ${_uiState.value.notebookId}, ${contentItems.size}")
         val newNoteList = convertToNoteDetailsList(
             contentItems = contentItems,
             notebookId = _uiState.value.notebookId!!
         )
-//        Log.d("add1", "noteList size ${newNoteList.size}")
         _uiState.value = _uiState.value.copy(noteList = newNoteList)
 
         runBlocking {
@@ -219,6 +218,17 @@ class NoteViewModel(
             }
             _uiState.value = _uiState.value.copy(noteList = newNoteListWithId)
         }
+    }
+
+    fun searchNote(content: String): List<NoteDetails> {
+        val noteDetailsList: MutableList<NoteDetails> = emptyList<NoteDetails>().toMutableList()
+        runBlocking {
+            val notes: List<Note> = notesRepository.searchNote(content).first()
+            notes.forEach {
+                noteDetailsList.add(it.toNoteDetails())
+            }
+        }
+        return noteDetailsList.toList()
     }
 }
 

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role.Companion.Button
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -406,6 +408,9 @@ fun MainScreen(
                     onEnable = { /* Handle enable action */ }
                 )
             }
+            Button(onClick = navigateToMe) {
+                Text("去我的")
+            }
 //            repeat(99) { index ->  // 保持99个项目以达到100个
 //                CustomListItem(
 //                    index = index,
@@ -424,7 +429,6 @@ fun MainScreen(
             var index = 0
             localNotebookUiState.notebookList.forEach {
                 index ++
-                Log.d("add1", "wow $index ${it.id}")
                 // 保持99个项目以达到100个
                 val noteTitle = notebookViewModel.getTitleNote(it.id)
                 val noteFirst = notebookViewModel.getFirstNote(it.id)
@@ -638,7 +642,9 @@ fun BottomNavigationBar(selectedTab: Int, setSelectedTab: (Int) -> Unit, isSelec
                 icon = { Icon(Icons.Filled.Person, contentDescription = "我的") },
                 label = { Text("我的") },
                 selected = selectedTab == 1,
-                onClick = { setSelectedTab(1) }
+                onClick = { setSelectedTab(1)
+
+                }
             )
         }
     }

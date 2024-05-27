@@ -1,5 +1,6 @@
 package com.example.simplenote.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +30,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun RegisterScreen(
     userViewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    navigateToWelcome: () -> Unit  ={},
+    navigateToLogin: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
@@ -76,13 +79,21 @@ fun RegisterScreen(
                         }
                         else {
                             // TODO: 弹出窗口
+                            userViewModel.insertUser(username = username, password = password)
+                            navigateToLogin()
                         }
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Login")
+            Text("注册")
+        }
+        Button(
+            onClick = navigateToWelcome,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("上一步")
         }
     }
 }
