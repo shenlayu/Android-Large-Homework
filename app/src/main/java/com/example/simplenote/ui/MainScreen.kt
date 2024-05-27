@@ -34,7 +34,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
@@ -44,7 +43,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -98,8 +98,7 @@ fun MainScreen(
     val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
     val localNotebookUiState by notebookViewModel.uiState.collectAsState()
 
-    val scrollBehavior = exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    var showMenu by rememberSaveable { mutableStateOf(false) }
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showSortMenu by rememberSaveable { mutableStateOf(false) }
@@ -143,8 +142,8 @@ fun MainScreen(
     Scaffold(
         topBar = {
             if (isSelecting) {
-                LargeTopAppBar(
-                    scrollBehavior = scrollBehavior,
+                TopAppBar(
+//                    scrollBehavior = scrollBehavior,
                     title = { Text(if (selectedItems.isEmpty()) "请选择项目" else "已选择${selectedItems.size}项") },
                     navigationIcon = {
                         TextButton(onClick = { clearSelection() }) {
@@ -162,7 +161,7 @@ fun MainScreen(
                     }
                 )
             } else {
-                LargeTopAppBar(
+                TopAppBar(
                     scrollBehavior = scrollBehavior,
                     title = {
                         Row(
@@ -230,20 +229,6 @@ fun MainScreen(
                                 contentDescription = "搜索"
                             )
                         }
-//                        IconButton(onClick = { showMenu = !showMenu }) {
-//                            Icon(
-//                                imageVector = Icons.Filled.MoreVert,
-//                                contentDescription = "更多"
-//                            )
-//                        }
-//                        DropdownMenu(
-//                            expanded = showMenu,
-//                            onDismissRequest = { showMenu = false }
-//                        ) {
-//                            DropdownMenuItem(text = { Text("第一个菜单项") }, onClick = { /*TODO*/ })
-//                            DropdownMenuItem(text = { Text("第二个菜单项") }, onClick = { /*TODO*/ })
-//                            DropdownMenuItem(text = { Text("第三个菜单项") }, onClick = { /*TODO*/ })
-//                        }
                     }
                 )
             }
@@ -379,10 +364,6 @@ fun MainSearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> 
                             cursorColor = Color.Black,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-//                            disabledIndicatorColor = Color.Transparent,
-//                            focusedContainerColor = Color.Transparent,
-//                            unfocusedContainerColor = Color.Transparent,
-//                            disabledContainerColor = Color.Transparent
                         )
                     )
                 }
@@ -405,51 +386,6 @@ fun MainSearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> 
         )
     }
 }
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun SpecialSyncCard(onIgnore: () -> Unit, onEnable: () -> Unit) {
-//    Card(
-//        shape = RoundedCornerShape(8.dp),
-////        elevation = 4.dp,
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(vertical = 8.dp, horizontal = 16.dp)
-//            .alpha(0.95f)
-//    ) {
-//        Column(modifier = Modifier.padding(16.dp)) {
-//            Text(
-//                text = "开启便签云同步",
-//                color = Color.White,
-//                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-//                modifier = Modifier.padding(bottom = 8.dp)
-//            )
-//            Text(
-//                text = "保障便签数据安全",
-//                color = Color.White,
-//                style = MaterialTheme.typography.bodyMedium,
-//                modifier = Modifier.padding(bottom = 16.dp)
-//            )
-//            Row(
-//                horizontalArrangement = Arrangement.End,
-//                modifier = Modifier.fillMaxWidth()
-//            ) {
-//                TextButton(
-//                    onClick = onIgnore,
-//                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Gray)
-//                ) {
-//                    Text("忽略")
-//                }
-//                Spacer(modifier = Modifier.width(8.dp))
-//                TextButton(
-//                    onClick = onEnable,
-//                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
-//                ) {
-//                    Text("开启")
-//                }
-//            }
-//        }
-//    }
-//}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -636,20 +572,3 @@ fun CreateDirectorySheet(
         )
     }
 }
-
-
-//@Composable
-//fun BottomSheetContent() {
-//    Column(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(16.dp),
-//        verticalArrangement = Arrangement.Center,
-//        horizontalAlignment = Alignment.CenterHorizontally
-//    ) {
-//        Text("底部动作条内容", style = MaterialTheme.typography.bodySmall)
-//        Button(onClick = { /* Handle action */ }) {
-//            Text("点击我")
-//        }
-//    }
-//}
