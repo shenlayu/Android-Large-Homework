@@ -11,6 +11,7 @@ import com.example.simplenote.data.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -79,7 +80,7 @@ class UserViewModel(
         return false
     }
     fun setPassword(username: String, password: String) {
-        viewModelScope.launch {
+        runBlocking {
             val userDetails: UserDetails? =
                 usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
             userDetails?.let {
@@ -90,15 +91,33 @@ class UserViewModel(
             }
         }
     }
+    fun setNickname(username: String, nickname: String) {
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                userDetails.nickname = nickname
+                usersRepository.updateUser(userDetails.toUser())
+            } ?: run {
+                println("setPassword ERROR: No user found")
+            }
+        }
+    }
+    fun getUser(userID: Int): UserDetails? {
+        val user = runBlocking {
+            usersRepository.searchUserById(userID).firstOrNull()
+        }
+        return user?.toUserDetails()
+    }
     fun login(username: String) {
 //        Log.d("add1", "inViewModel")
 //        viewModelScope.launch {
 
-        viewModelScope.launch {
+        runBlocking {
             // 将要登录user
             val user: User? = usersRepository.searchUser(username).firstOrNull()
             val currentLoggedUser: LoggedUser? = loggedUserRepository.getLoggedUser().firstOrNull()?.firstOrNull()
-            val currentLoggedUserDetails = _uiState.value.loggedUserDetails
+//            val currentLoggedUserDetails = _uiState.value.loggedUserDetails
             user?.let {
                 _uiState.value = _uiState.value.copy(
                     loggedUserDetails = LoggedUserDetails(userId = it.id)
@@ -107,7 +126,7 @@ class UserViewModel(
 
             // 目前登录loggedUser
 //            Log.d("add1", "here?")
-            currentLoggedUserDetails?.let { // 目前有登录用户
+            currentLoggedUser?.let { // 目前有登录用户
                 Log.d("add1", "why")
                 user?.let {
                     Log.d("add1", "${user.id}")
@@ -136,9 +155,11 @@ class UserViewModel(
 //                list.firstOrNull()
 //            }
 //            .firstOrNull()
-        viewModelScope.launch {
-            _uiState.value.loggedUserDetails?.let { // 目前有登录用户
-                loggedUserRepository.deleteLoggedUser(it.toLoggedUser())
+        runBlocking {
+            val currentLoggedUser: LoggedUser? = loggedUserRepository.getLoggedUser().firstOrNull()?.firstOrNull()
+            currentLoggedUser?.let { // 目前有登录用户
+                loggedUserRepository.deleteLoggedUser(it)
+                _uiState.value = _uiState.value.copy(loggedUserDetails = null)
             }?:run { // 目前没有登录用户
                 println("logout ERROR: No user found")
             }
@@ -152,17 +173,15 @@ class UserViewModel(
 
 data class UserDetails(
     val id: Int = 0,
-    val username: String = "",
+    var username: String = "",
     var password: String = "",
-    val photo: String = "",
-    val nickname: String = "",
-    val avatar: String = ""
+    var nickname: String = "",
+    var avatar: String = ""
 )
 fun UserDetails.toUser(): User = User(
     id = id,
     username = username,
     password = password,
-    photo = photo,
     nickname = nickname,
     avatar = avatar
 )
@@ -170,7 +189,6 @@ fun User.toUserDetails(): UserDetails = UserDetails(
     id = id,
     username = username,
     password = password,
-    photo = photo,
     nickname = nickname,
     avatar = avatar
 )

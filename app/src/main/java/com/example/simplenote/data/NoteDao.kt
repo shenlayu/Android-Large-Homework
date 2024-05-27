@@ -19,6 +19,8 @@ interface UserDao {
     suspend fun delete(user: User)
     @Query("SELECT * from users WHERE username = :username")
     fun searchUser(username: String): Flow<User> // 检查user
+    @Query("SELECT * from users WHERE id = :id")
+    fun searchUserById(id: Int): Flow<User>
     @Query("SELECT * FROM users WHERE id = :id")
     fun getNotebookWithNotes(id : Int): Flow<UserWithDirectories>
 }
@@ -67,6 +69,8 @@ interface NoteDao {
     fun getNote(id: Int): Flow<Note>
     @Query("SELECT * from notes ORDER BY id ASC")
     fun getAllNotes(): Flow<List<Note>>
+    @Query("SELECT * from notes WHERE content LIKE :content AND type = :text")
+    fun search(content: String, text: String = "Text"): Flow<List<Note>>
 }
 
 @Dao

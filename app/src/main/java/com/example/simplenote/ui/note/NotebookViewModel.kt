@@ -149,16 +149,38 @@ class NotebookViewModel(
         return noteDetails
     }
     fun getFirstNote(notebookID: Int): NoteDetails? {
-        val note = runBlocking {
-            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes?.getOrNull(0)
+        val notes = runBlocking {
+            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes
         }
-        return note?.toNoteDetails()
+
+        if (notes != null) {
+            for(note in notes) {
+                if(!note.isTitle)
+                    return note.toNoteDetails()
+            }
+        }
+
+        return null
     }
     fun getSecondNote(notebookID: Int): NoteDetails? {
-        val note = runBlocking {
-            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes?.getOrNull(1)
+        val notes = runBlocking {
+            notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes
         }
-        return note?.toNoteDetails()
+
+        var jump = true
+        if (notes != null) {
+            for(note in notes) {
+                if(!note.isTitle) {
+                    if(jump) {
+                        jump = false
+                        continue
+                    }
+                    return note.toNoteDetails()
+                }
+            }
+        }
+
+        return null
     }
 }
 
