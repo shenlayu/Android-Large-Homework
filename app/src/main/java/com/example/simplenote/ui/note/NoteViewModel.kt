@@ -159,20 +159,20 @@ class NoteViewModel(
                 noteDetails = noteDetails.copy(content = contentItem.text.value.text, isTitle = contentItem.isTitle, type = NoteType.Text)
             }
             is ContentItem.ImageItem -> {
-                noteDetails = noteDetails.copy(content = contentItem.imageUri.path!!, type = NoteType.Photo)
+                noteDetails = noteDetails.copy(content = contentItem.imageUri.toString()?: "", type = NoteType.Photo)
             }
             is ContentItem.AudioItem -> {
-                noteDetails = noteDetails.copy(content = contentItem.audioUri.path!!, type = NoteType.Audio)
+                noteDetails = noteDetails.copy(content = contentItem.audioUri.toString()?: "", type = NoteType.Audio)
             }
             is ContentItem.VideoItem -> {
-                noteDetails = noteDetails.copy(content = contentItem.videoUri.path!!, type = NoteType.Video)
+                noteDetails = noteDetails.copy(content = contentItem.videoUri.toString()?: "", type = NoteType.Video)
             }
         }
         return noteDetails
     }
     fun convertToNoteDetailsList(contentItems: List<ContentItem>, notebookId: Int): List<NoteDetails> {
         val noteDetailsList: MutableList<NoteDetails> = emptyList<NoteDetails>().toMutableList()
-        for(idx in 0..<contentItems.size) {
+        for(idx in contentItems.indices) {
             var noteDetails = convertContentItemToNoteDetails(contentItems[idx])
             noteDetails = noteDetails.copy(order = idx, notebookId = notebookId)
             noteDetailsList.add(noteDetails)

@@ -149,10 +149,13 @@ fun covertNoteDetailsToContentItem (noteDetails: NoteDetails): ContentItem {
     }
     else if(noteDetails.type == NoteType.Photo) {
         contentItem = ContentItem.ImageItem(Uri.parse(noteDetails.content))
-        Log.d("add1", "convert photo ${noteDetails.content}")
+        Log.d("add1", "convert photo $contentItem")
     }
     else if(noteDetails.type == NoteType.Audio) {
         contentItem = ContentItem.AudioItem(Uri.parse(noteDetails.content))
+    }
+    else if(noteDetails.type == NoteType.Video) {
+        contentItem = ContentItem.VideoItem(Uri.parse(noteDetails.content))
     }
     return contentItem!!
 }
@@ -162,6 +165,7 @@ fun convertToContentItemList(noteDetailsList: List<NoteDetails>): List<ContentIt
     noteDetailsList.forEach {
         contentItemList.add(covertNoteDetailsToContentItem(it))
     }
+    Log.d("add1", "$contentItemList")
     return contentItemList
 }
 
@@ -722,6 +726,7 @@ fun DisplayImageItem(
         }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            Log.d("add1", "imaging ${contentItems.value[index]}")
             Image(
                 painter = rememberAsyncImagePainter(imageItem.imageUri),
                 contentDescription = null,
