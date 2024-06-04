@@ -20,6 +20,7 @@ import com.example.simplenote.ui.RegisterScreen
 import com.example.simplenote.ui.WelcomeScreen
 import com.example.simplenote.ui.contentItems
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.UserViewModel
 
 enum class pages(@StringRes val title: Int) {
@@ -39,7 +40,7 @@ fun NoteNavHost(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val userViewModel: UserViewModel =  viewModel(factory = AppViewModelProvider.Factory)
 //    val directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
-//    val notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    val notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory)
 
     NavHost(
@@ -50,7 +51,7 @@ fun NoteNavHost(
         composable(route = pages.Main.name) {
             MainScreen(
 //                directoryViewModel = directoryViewModel,
-//                notebookViewModel = notebookViewModel,
+                notebookViewModel = notebookViewModel,
                 noteViewModel = noteViewModel,
                 navigateToEdit = { navController.navigate(pages.Edit.name) },
                 navigateToMe = {navController.navigate(pages.Me.name)}
@@ -60,6 +61,7 @@ fun NoteNavHost(
         composable(route = pages.Edit.name) {
             EditorScreen(
                 contentItems,
+                notebookViewModel = notebookViewModel,
                 noteViewModel = noteViewModel,
                 navigateToMain = { navController.navigate(pages.Main.name) },
                 navigateBack = { navController.navigateUp() },

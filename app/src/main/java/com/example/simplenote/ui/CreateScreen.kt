@@ -88,6 +88,7 @@ import com.example.simplenote.R
 import com.example.simplenote.data.NoteType
 import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.NotebookViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -149,7 +150,6 @@ fun covertNoteDetailsToContentItem (noteDetails: NoteDetails): ContentItem {
     }
     else if(noteDetails.type == NoteType.Photo) {
         contentItem = ContentItem.ImageItem(Uri.parse(noteDetails.content))
-        Log.d("add1", "convert photo $contentItem")
     }
     else if(noteDetails.type == NoteType.Audio) {
         contentItem = ContentItem.AudioItem(Uri.parse(noteDetails.content))
@@ -165,7 +165,7 @@ fun convertToContentItemList(noteDetailsList: List<NoteDetails>): List<ContentIt
     noteDetailsList.forEach {
         contentItemList.add(covertNoteDetailsToContentItem(it))
     }
-    Log.d("add1", "$contentItemList")
+//    Log.d("add1", "$contentItemList")
     return contentItemList
 }
 
@@ -227,6 +227,7 @@ fun PreviewEditorScreen() {
 fun EditorScreen(
     contentItems: MutableState<MutableList<ContentItem>>,
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateToMain: () -> Unit = {},
     navigateBack: () -> Unit = {},
 ) {
@@ -263,13 +264,15 @@ fun EditorScreen(
 //    val a = convertToNoteDetailsList(contentItems.value, )
     Scaffold(
         topBar = { EditorTopBar(
-            onBack = navigateBack,
+            onBack = navigateToMain,
             onUndo = { undo(contentItems = contentItems)},
             onRedo = { redo(contentItems)},
             onSearch = {isSearchDialogOpen.value = true},
             onDone = {
                 noteViewModel.saveNotes(contentItems.value)
+                notebookViewModel.sortBySortType()
                 canLaunch = true
+                notebookViewModel.updateNotebookChangeTime()
             }
         ) },
         bottomBar = {

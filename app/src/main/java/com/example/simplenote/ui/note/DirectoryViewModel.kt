@@ -79,21 +79,21 @@ class DirectoryViewModel(
         }
     }
 
-    private fun sortBySortType() {
-        if(_uiState.value.sortType == SortType.Time) {
-            val newDirectoryList = _uiState.value.directoryList.toMutableList()
-            newDirectoryList.sortBy { it.time }
-            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
-        }
-        else if(_uiState.value.sortType == SortType.Name) {
-            val newDirectoryList = _uiState.value.directoryList.toMutableList()
-            newDirectoryList.sortBy { it.name }
-            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
-        }
-    }
-    fun changeSortType(sortTypeTo: SortType) {
-        _uiState.value = _uiState.value.copy(sortType = sortTypeTo)
-    }
+//    private fun sortBySortType() {
+//        if(_uiState.value.sortType == SortType.Time) {
+//            val newDirectoryList = _uiState.value.directoryList.toMutableList()
+//            newDirectoryList.sortBy { it.time }
+//            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
+//        }
+//        else if(_uiState.value.sortType == SortType.Name) {
+//            val newDirectoryList = _uiState.value.directoryList.toMutableList()
+//            newDirectoryList.sortBy { it.name }
+//            _uiState.value = _uiState.value.copy(directoryList = newDirectoryList.toList())
+//        }
+//    }
+//    fun changeSortType(sortTypeTo: SortType) {
+//        _uiState.value = _uiState.value.copy(sortType = sortTypeTo)
+//    }
     fun insertDirectory(name: String) {
         val directoryDetails: DirectoryDetails = DirectoryDetails(
             name = name,
@@ -154,7 +154,7 @@ data class DirectoryUiState(
 //    val userState: StateFlow<UserState>? = null,
     val userID: Int? = null,
     val directoryList: List<DirectoryDetails> = listOf<DirectoryDetails>(),
-    val sortType: SortType = SortType.Time,
+    val sortType: SortType = SortType.CreateTime,
 //    val SavedText: String = ""
 )
 
@@ -183,6 +183,6 @@ fun Directory.toDirectoryDetails(): DirectoryDetails = DirectoryDetails(
 )
 
 enum class SortType {
-    Name,
-    Time
+    ChangeTime,
+    CreateTime
 }
