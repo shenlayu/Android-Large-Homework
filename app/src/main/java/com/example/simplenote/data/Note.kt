@@ -4,6 +4,7 @@ import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Relation
+import com.example.simplenote.ui.note.SortType
 
 // 实体，对应数据库中一张表
 // 用户
@@ -24,7 +25,7 @@ data class Directory(
     val id: Int,
     val name: String,
     val userId: Int,
-    val time: String // 创建时间
+    val time: String, // 创建时间
 )
 
 // 笔记本
@@ -34,7 +35,8 @@ data class Notebook(
     val id: Int,
     val name: String,
     val directoryId: Int, // 所在的文件夹编号
-    val time: String
+    val createTime: String, // 创建时间
+    val changeTime: String // 修改时间
 )
 
 // 笔记条目，对应一段文字/一张图片 等等

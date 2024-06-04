@@ -77,8 +77,11 @@ import com.example.simplenote.ui.note.DirectoryDetails
 import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
+import com.example.simplenote.ui.note.SortType
 import com.example.simplenote.ui.note.UserViewModel
+import com.example.simplenote.ui.note.toNotebook
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
@@ -103,10 +106,9 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     var showSortMenu by rememberSaveable { mutableStateOf(false) }
 
-    var sortOrder by rememberSaveable { mutableStateOf("按修改时间排序") }
+    var showBottomSheet by rememberSaveable { mutableStateOf(false) } // 用于控制底部动作条的状态
+    val (selectedTab, setSelectedTab) = rememberSaveable { mutableStateOf(0) }
 
-    var showBottomSheet by rememberSaveable { mutableStateOf(false) }
-    val (selectedTab) = rememberSaveable { mutableStateOf(0) }
     var isSelecting by rememberSaveable { mutableStateOf(false) }
     var selectedItems by rememberSaveable { mutableStateOf(setOf<Int>()) }
     val isSearchDialogOpen = remember { mutableStateOf(false) }
@@ -212,14 +214,26 @@ fun MainScreen(
                         ) {
                             DropdownMenuItem(
                                 text = { Text("按修改时间排序") },
-                                onClick = { sortOrder = "按修改时间排序"; showSortMenu = false },
-                                modifier = Modifier.fillMaxWidth()
+                                onClick = {
+                                    notebookViewModel.changeSortType(SortType.ChangeTime)
+                                    notebookViewModel.sortBySortType()
+                                    showSortMenu = false
+//                                    sortValue = true
+                                  },
+                                modifier = Modifier
+                                    .fillMaxWidth()
                             )
                             Divider()
                             DropdownMenuItem(
                                 text = { Text("按创建时间排序") },
-                                onClick = { sortOrder = "按创建时间排序"; showSortMenu = false },
-                                modifier = Modifier.fillMaxWidth()
+                                onClick = {
+                                    notebookViewModel.changeSortType(SortType.CreateTime)
+                                    notebookViewModel.sortBySortType()
+                                    showSortMenu = false
+//                                    sortValue = true
+                                  },
+                                modifier = Modifier
+                                    .fillMaxWidth()
                             )
                         }
 
@@ -241,6 +255,7 @@ fun MainScreen(
                         val newNotebookId = notebookViewModel.uiState.value.notebookList.last().id
                         noteViewModel.initFirst(newNotebookId)
                         navigateToEdit()
+//                        sortValue = true
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
@@ -297,6 +312,14 @@ fun MainScreen(
                     },
                     onDelete = {
                         // todo: 处理删除操作的逻辑
+                        val sortedList = selectedItems.sortedDescending()
+                        sortedList.forEach {
+                            notebookViewModel.deleteNotebook(it)
+                            localNotebookUiState.notebookList.forEach {
+                            }
+                        }
+
+                        // 清除选中的项目
                         selectedItems = setOf()
                         isSelecting = false
                     },
@@ -311,22 +334,68 @@ fun MainScreen(
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(padding)
         ) {
-            items(localNotebookUiState.notebookList.size) { index ->
-                val notebook = localNotebookUiState.notebookList[index]
-                val noteTitle = notebookViewModel.getTitleNote(notebook.id)
-                val noteFirst = notebookViewModel.getFirstNote(notebook.id)
-                val noteSecond = notebookViewModel.getSecondNote(notebook.id)
+//            TextField(
+//                value = localUiState.SavedText,
+//                onValueChange = {
+//                    directoryViewModel.Updatetext((it))
+//                },
+//                singleLine = false,
+//                maxLines = 4,
+//                modifier = Modifier
+//            )
+//            Button(modifier = Modifier.fillMaxWidth(),
+//                onClick = {
+//                    directoryViewModel.init(0)
+//                }
+//                ) {}
+
+            if (showSyncCard) {
+                SpecialSyncCard(
+                    onIgnore = { showSyncCard = false },
+                    onEnable = { /* Handle enable action */ }
+                )
+            }
+            Button(onClick = navigateToMe) {
+                Text("去我的")
+            }
+//            repeat(99) { index ->  // 保持99个项目以达到100个
+//                CustomListItem(
+//                    index = index,
+//                    text = "$index. 主要标题",
+//                    subText1 = if (index % 2 == 0) "次要信息" else null,
+//                    subText2 = "附加信息",
+//                    isSelecting = isSelecting,
+//                    isSelected = selectedItems.contains(index),
+//                    onSelect = { handleItemSelect(index) },
+//                    onLongPress = { handleLongPress(index) },
+//                    enterEditScreen = {
+//                    //todo: 完成进入编辑界面的逻辑
+//                    }
+//                )
+//            }
+            localNotebookUiState.notebookList.reversed().forEachIndexed() { idx, notebookDetails ->
+                // 保持99个项目以达到100个
+                val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
+                val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
+                val noteSecond = notebookViewModel.getSecondNote(notebookDetails.id)
+//                val noteTitle: NoteDetails? = null
+//                val noteFirst: NoteDetails? = null
+//                val noteSecond: NoteDetails? = null
                 CustomListItem(
+                    index = idx,
                     text = noteTitle?.content ?: "",
                     subText1 = noteFirst?.content ?: "",
                     subText2 = noteSecond?.content ?: "",
                     isSelecting = isSelecting,
-                    isSelected = selectedItems.contains(index),
-                    onSelect = { handleItemSelect(index) },
-                    onLongPress = { handleLongPress(index) },
+                    isSelected = selectedItems.contains(idx),
+                    onSelect = { handleItemSelect(idx) },
+                    onLongPress = { handleLongPress(idx) },
                     enterEditScreen = {
-                        noteViewModel.init(notebook.id)
+                        //todo: 完成进入编辑界面的逻辑
+                        noteViewModel.init(notebookDetails.id)
+
                         navigateToEdit()
+//                        sortValue = true
                     }
                 )
             }

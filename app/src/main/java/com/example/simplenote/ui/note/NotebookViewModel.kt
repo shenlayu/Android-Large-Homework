@@ -7,15 +7,11 @@ import com.example.simplenote.data.DirectoriesRepository
 import com.example.simplenote.data.DirectoryWithNotebooks
 import com.example.simplenote.data.Notebook
 import com.example.simplenote.data.NotebooksRepository
-import com.example.simplenote.data.NotesRepository
-import com.example.simplenote.data.UserWithDirectories
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDateTime
@@ -66,19 +62,20 @@ class NotebookViewModel(
             } ?: run {
                 _uiState.value = _uiState.value.copy(notebookList = emptyList(), directoryID = directoryID)
             }
+            Log.d("add1", "in ${_uiState.value.sortType}")
+            sortBySortType()
         }
     }
 
-
     fun sortBySortType() {
-        if(_uiState.value.sortType == SortType.Time) {
+        if(_uiState.value.sortType == SortType.CreateTime) {
             val newNotebookList = _uiState.value.notebookList.toMutableList()
-            newNotebookList.sortBy { it.time }
+            newNotebookList.sortBy { it.createTime }
             _uiState.value = _uiState.value.copy(notebookList = newNotebookList.toList())
         }
-        if(_uiState.value.sortType == SortType.Name) {
+        if(_uiState.value.sortType == SortType.ChangeTime) {
             val newNotebookList = _uiState.value.notebookList.toMutableList()
-            newNotebookList.sortBy { it.name }
+            newNotebookList.sortBy { it.changeTime }
             _uiState.value = _uiState.value.copy(notebookList = newNotebookList.toList())
         }
     }
@@ -86,15 +83,14 @@ class NotebookViewModel(
         _uiState.value = _uiState.value.copy(sortType = sortTypeTo)
     }
     fun insertNotebook(name: String) {
-//        Log.d("add1", "directoryId ${_uiState.value.directoryID}")
         val notebookDetails: NotebookDetails = NotebookDetails(
             name = name,
             directoryId = _uiState.value.directoryID!!,
-            time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            createTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+            changeTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         )
         val newNotebookList = _uiState.value.notebookList.toMutableList().apply{ add(notebookDetails) }
         _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
-//        Log.d("add1", "list size ${_uiState.value.notebookList.size}")
         runBlocking {
             notebookRepository.insertNotebook(notebookDetails.toNotebook())
         }
@@ -109,15 +105,12 @@ class NotebookViewModel(
     }
     fun deleteNotebook(listID: Int) {
         if(listID < _uiState.value.notebookList.size) {
-            val newNotebookList = _uiState.value.notebookList.toMutableList().apply{ removeAt(listID) }
-            val notebook = newNotebookList[listID].toNotebook()
-            _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
-            viewModelScope.launch {
+            val notebook = _uiState.value.notebookList[listID].toNotebook()
+            runBlocking {
                 notebookRepository.deleteNotebook(notebook)
             }
-        }
-        else {
-            println("deleteDirectory ERROR: No user found")
+            val newNotebookList = _uiState.value.notebookList.toMutableList().apply{ removeAt(listID) }
+            _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
         }
     }
     fun changeNotebookName(listID: Int, name: String) {
@@ -129,13 +122,35 @@ class NotebookViewModel(
                 notebookRepository.updateNotebook(notebook)
             }
         }
-        else {
-            println("changeDirectoryName ERROR: No user found")
+    }
+    fun updateNotebookChangeTime() {
+        val newNotebookDetailsList = _uiState.value.notebookList.toMutableList()
+        _uiState.value.notebookList.forEachIndexed {idx, notebookDetails ->
+            var newNotebookDetails: NotebookDetails
+            runBlocking {
+                newNotebookDetails = notebookRepository.getNotebookStream(notebookDetails.id).first()!!.toNotebookDetails()
+            }
+            newNotebookDetailsList[idx] = newNotebookDetails
         }
+        _uiState.value = _uiState.value.copy(notebookList = newNotebookDetailsList)
     }
-    fun changeNotebookTime(listID: Int) {
-        // TODO
-    }
+//    fun changeNotebookChangeTime(id: Int) {
+//        var listID: Int = 0
+//        _uiState.value.notebookList.forEachIndexed() {idx, notebookDetails ->
+//            if(notebookDetails.id == id) {
+//                listID = idx
+//            }
+//        }
+//        if(listID < _uiState.value.notebookList.size) {
+//            val newNotebookList = _uiState.value.notebookList.toMutableList()
+//            newNotebookList[listID].changeTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+//            val notebook = newNotebookList[listID].toNotebook()
+//            viewModelScope.launch {
+//                notebookRepository.updateNotebook(notebook)
+//            }
+//        }
+//    }
+
     fun getTitleNote(notebookID: Int): NoteDetails? {
         val notes = runBlocking {
             notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes
@@ -188,7 +203,7 @@ data class NotebookUiState (
 //    val directoryState: StateFlow<DirectoryState>? = null,
     val notebookList: List<NotebookDetails> = listOf<NotebookDetails>(),
     val directoryID: Int? = null,
-    val sortType: SortType = SortType.Time
+    val sortType: SortType = SortType.CreateTime
 )
 
 data class DirectoryState(
@@ -200,17 +215,20 @@ data class NotebookDetails(
     var id: Int = 0,
     var name: String = "",
     var directoryId: Int = 0,
-    var time: String = ""
+    var createTime: String = "",
+    var changeTime: String = ""
 )
 fun NotebookDetails.toNotebook(): Notebook = Notebook(
     id = id,
     name = name,
     directoryId = directoryId,
-    time = time
+    createTime = createTime,
+    changeTime = changeTime
 )
 fun Notebook.toNotebookDetails(): NotebookDetails = NotebookDetails(
     id = id,
     name = name,
     directoryId = directoryId,
-    time = time
+    createTime = createTime,
+    changeTime = changeTime
 )
