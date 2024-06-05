@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class NoteViewModel(
     private val notebooksRepository: NotebooksRepository,
@@ -184,6 +186,7 @@ class NoteViewModel(
         // 先将当前viewmodel中list中内容在database中清空，
         // 然后convert to noteList并保存到viewmodel中list
         // 最后将viewmodel中新的list内容存到database
+        // 最后最后更新该笔记本修改时间
         runBlocking {
             _uiState.value.noteList.forEach {
                 notesRepository.deleteNote(it.toNote())
@@ -217,6 +220,12 @@ class NoteViewModel(
                 newNoteListWithId.add(it.toNoteDetails())
             }
             _uiState.value = _uiState.value.copy(noteList = newNoteListWithId)
+        }
+
+        runBlocking {
+            val notebookDetails: NotebookDetails = notebooksRepository.getNotebookStream(_uiState.value.notebookId!!).first()!!.toNotebookDetails()
+            notebookDetails.changeTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            notebooksRepository.updateNotebook(notebookDetails.toNotebook())
         }
     }
 

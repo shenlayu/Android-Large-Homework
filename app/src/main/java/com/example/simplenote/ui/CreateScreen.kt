@@ -88,7 +88,11 @@ import com.example.simplenote.R
 import com.example.simplenote.data.NoteType
 import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.NotebookViewModel
 import kotlinx.coroutines.delay
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -149,7 +153,6 @@ fun covertNoteDetailsToContentItem (noteDetails: NoteDetails): ContentItem {
     }
     else if(noteDetails.type == NoteType.Photo) {
         contentItem = ContentItem.ImageItem(Uri.parse(noteDetails.content))
-        Log.d("add1", "convert photo $contentItem")
     }
     else if(noteDetails.type == NoteType.Audio) {
         contentItem = ContentItem.AudioItem(Uri.parse(noteDetails.content))
@@ -165,7 +168,7 @@ fun convertToContentItemList(noteDetailsList: List<NoteDetails>): List<ContentIt
     noteDetailsList.forEach {
         contentItemList.add(covertNoteDetailsToContentItem(it))
     }
-    Log.d("add1", "$contentItemList")
+//    Log.d("add1", "$contentItemList")
     return contentItemList
 }
 
@@ -227,6 +230,7 @@ fun PreviewEditorScreen() {
 fun EditorScreen(
     contentItems: MutableState<MutableList<ContentItem>>,
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateToMain: () -> Unit = {},
     navigateBack: () -> Unit = {},
 ) {
@@ -263,13 +267,15 @@ fun EditorScreen(
 //    val a = convertToNoteDetailsList(contentItems.value, )
     Scaffold(
         topBar = { EditorTopBar(
-            onBack = navigateBack,
+            onBack = navigateToMain,
             onUndo = { undo(contentItems = contentItems)},
             onRedo = { redo(contentItems)},
             onSearch = {isSearchDialogOpen.value = true},
             onDone = {
                 noteViewModel.saveNotes(contentItems.value)
+                notebookViewModel.sortBySortType()
                 canLaunch = true
+                notebookViewModel.updateNotebookChangeTime()
             }
         ) },
         bottomBar = {
@@ -682,11 +688,28 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
 }
 
 fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>) {
-    val allText = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
-    // Here, use `allText` to call your AI API for generating the summary
+    var allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+
+//    File("../data/text.txt").writeText(allText)
+
+//    val command = listOf("sh", "-c", "python /Users/qiaoshenyu/Desktop/大二下/安卓/LargeHomework/zhipu.py")
+//    val processBuilder = ProcessBuilder(command)
+//    processBuilder.redirectErrorStream(true)
+//    processBuilder.environment()["SCRIPT_CONTENT"] = allText
+//    val process = processBuilder.start()
+//
+//    val output = StringBuilder()
+//    BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+//        var line: String?
+//        while (reader.readLine().also { line = it } != null) {
+//            output.append(line).append("\n")
+//        }
+//    }
+//    process.waitFor()
+//    allText = output.toString()
+
     Log.d("AI Summary", "Generated summary for text: $allText")
 }
-
 
 @Composable
 fun DisplayImageItem(
