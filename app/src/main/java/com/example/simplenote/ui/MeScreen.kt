@@ -1,142 +1,129 @@
 package com.example.simplenote.ui
 
-import android.util.Log
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.simplenote.R
-import com.example.simplenote.data.User
-import com.example.simplenote.ui.note.UserDetails
 import com.example.simplenote.ui.note.UserViewModel
 
 @Composable
 fun MeScreen(
     userViewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    navigateToMain: () -> Unit = {},
     navigateToPassword: () -> Unit = {},
+    navigateToMain: () -> Unit = {},
     navigateToWelcome: () -> Unit = {}
 ) {
-//    Log.d("add1", "in")
-    val localUserUiState by userViewModel.uiState.collectAsState()
-//    Log.d("add1", "in2 ${localUserUiState.loggedUserDetails}")
+    var showImagePicker by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(1) }
 
-//    Log.d("add1", "in3")
-
-    var localUserDetails: UserDetails? = null
-    localUserUiState.loggedUserDetails?.let {
-        localUserDetails = userViewModel.getUser(localUserUiState.loggedUserDetails!!.userId)
+    if (showImagePicker) {
+        // Trigger the image picker
+        // This is just a placeholder, actual image picker implementation depends on your setup
+        // You can use a library like Accompanist or your own custom implementation
+        LaunchedEffect(Unit) {
+            // showImagePicker = false after image selection is handled
+        }
     }
 
-    var nickname by remember { mutableStateOf(TextFieldValue(localUserDetails?.nickname ?: ""))}
-    var isEditingNickname by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-        Image(
-            painter = painterResource(id = R.drawable.avatar), // Placeholder avatar
-            contentDescription = "Avatar",
-            modifier = Modifier
-                .clip(CircleShape)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        if (isEditingNickname) {
-            TextField(
-                value = nickname,
-                onValueChange = { nickname = it },
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = {
-                localUserDetails?.let {
-                    userViewModel.setNickname(localUserDetails!!.username, nickname.text)
-                }
-                isEditingNickname = false
-            }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.avatar), // Check icon resource
-                    contentDescription = "Save"
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Home, contentDescription = "笔记") },
+                    label = { Text("笔记") },
+                    selected = selectedTab == 0,
+                    onClick = {
+                        selectedTab = 0
+                        navigateToMain()
+                    }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Person, contentDescription = "我的") },
+                    label = { Text("我的") },
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 }
                 )
             }
-        } else {
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.avatar), // Placeholder avatar
+                contentDescription = "Avatar",
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .clickable { showImagePicker = true },
+                contentScale = ContentScale.Crop
+            )
+            Spacer(modifier = Modifier.padding(8.dp))
             Text(
-                text = nickname.text,
+                text = "小明",
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+                fontWeight = FontWeight.Bold
             )
-            IconButton(onClick = { isEditingNickname = true }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.avatar), // Edit icon resource
-                    contentDescription = "Edit"
-                )
+
+            Spacer(modifier = Modifier.padding(20.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+
+
+                Button(
+                    modifier = Modifier.padding(end = 16.dp),
+                    onClick = navigateToPassword
+                ) {
+                    Text("重置密码")
+                }
+                Button(
+                    onClick = {
+                        userViewModel.logout()
+                        navigateToWelcome()
+                    },
+                    modifier = Modifier.padding(start = 16.dp)
+                ) {
+                    Text("退出登录")
+                }
             }
-        }
-    }
-
-        Divider(color = Color.Gray, thickness = 1.dp)
-
-        Button(
-            onClick = navigateToPassword,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("设置密码")
-        }
-
-        Button(
-            onClick = {
-                userViewModel.logout()
-                navigateToWelcome()
-                      },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("登出")
-        }
-        Button(
-            onClick = navigateToMain,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("去预览")
         }
     }
 }

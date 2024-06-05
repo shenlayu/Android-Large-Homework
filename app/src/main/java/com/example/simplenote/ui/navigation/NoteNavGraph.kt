@@ -9,11 +9,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.simplenote.ui.MainScreen
 import com.example.simplenote.R
 import com.example.simplenote.ui.AppViewModelProvider
 import com.example.simplenote.ui.EditorScreen
 import com.example.simplenote.ui.LoginScreen
+import com.example.simplenote.ui.MainScreen
 import com.example.simplenote.ui.MeScreen
 import com.example.simplenote.ui.PasswordScreen
 import com.example.simplenote.ui.RegisterScreen
@@ -54,7 +54,8 @@ fun NoteNavHost(
                 notebookViewModel = notebookViewModel,
                 noteViewModel = noteViewModel,
                 navigateToEdit = { navController.navigate(pages.Edit.name) },
-                navigateToMe = {navController.navigate(pages.Me.name)}
+                navigateToMe = {navController.navigate(pages.Me.name)},
+                navigateToMain = { navController.navigate(pages.Main.name) }
             )
         }
         // 编辑笔记界面
