@@ -1,5 +1,6 @@
 package com.example.simplenote.ui
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -380,16 +381,6 @@ fun MainScreen(
 //                    directoryViewModel.init(0)
 //                }
 //                ) {}
-
-            if (showSyncCard) {
-                SpecialSyncCard(
-                    onIgnore = { showSyncCard = false },
-                    onEnable = { /* Handle enable action */ }
-                )
-            }
-            Button(onClick = navigateToMe) {
-                Text("去我的")
-            }
 //            repeat(99) { index ->  // 保持99个项目以达到100个
 //                CustomListItem(
 //                    index = index,
@@ -413,23 +404,24 @@ fun MainScreen(
 //                val noteTitle: NoteDetails? = null
 //                val noteFirst: NoteDetails? = null
 //                val noteSecond: NoteDetails? = null
-                CustomListItem(
-                    index = idx,
-                    text = noteTitle?.content ?: "",
-                    subText1 = noteFirst?.content ?: "",
-                    subText2 = noteSecond?.content ?: "",
-                    isSelecting = isSelecting,
-                    isSelected = selectedItems.contains(idx),
-                    onSelect = { handleItemSelect(idx) },
-                    onLongPress = { handleLongPress(idx) },
-                    enterEditScreen = {
-                        //todo: 完成进入编辑界面的逻辑
-                        noteViewModel.init(notebookDetails.id)
+                item {
+                    CustomListItem(
+                        text = noteTitle?.content ?: "",
+                        subText1 = noteFirst?.content ?: "",
+                        subText2 = noteSecond?.content ?: "",
+                        isSelecting = isSelecting,
+                        isSelected = selectedItems.contains(idx),
+                        onSelect = { handleItemSelect(idx) },
+                        onLongPress = { handleLongPress(idx) },
+                        enterEditScreen = {
+                            //todo: 完成进入编辑界面的逻辑
+                            noteViewModel.init(notebookDetails.id)
 
-                        navigateToEdit()
+                            navigateToEdit()
 //                        sortValue = true
-                    }
-                )
+                        }
+                    )
+                }
             }
             item {
                 Spacer(Modifier.height(16.dp))
