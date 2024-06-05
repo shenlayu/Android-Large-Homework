@@ -136,7 +136,6 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     var showSortMenu by rememberSaveable { mutableStateOf(false) }
 
-
     var showBottomSheet by rememberSaveable { mutableStateOf(false) } // 用于控制底部动作条的状态
     val (selectedTab, setSelectedTab) = rememberSaveable { mutableStateOf(0) }
     var isSelecting by rememberSaveable { mutableStateOf(false) }
@@ -149,7 +148,14 @@ fun MainScreen(
     if(localDirectoryUiState.directoryList.isNotEmpty()) {
         if(isFirstLaunch.value) {
             isFirstLaunch.value = false
-            notebookViewModel.init(localDirectoryUiState.directoryList[0].id)
+            if(localNotebookUiState.directoryID != null && localNotebookUiState.directoryID != localDirectoryUiState.directoryList[0].id) {
+                notebookViewModel.init(localNotebookUiState.directoryID)
+                id.intValue = localNotebookUiState.directoryID!!
+            }
+            else {
+                notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
+                id.intValue = localDirectoryUiState.directoryList[0].id
+            }
         }
     }
 
@@ -312,7 +318,16 @@ fun MainScreen(
 //                            noteViewModel.init(id.intValue)
 ////                            navigateToEdit()
 //                        }
-                        notebookViewModel.insertNotebook("new")
+                        // 处理全部笔记
+                        if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
+                            Log.d("add1", "localNotebookUiState.directoryID ${localNotebookUiState.directoryID}")
+                            Log.d("add1", "localDirectoryUiState.directoryList[0].id ${localDirectoryUiState.directoryList[0].id}")
+                            Log.d("add1", "localDirectoryUiState.directoryList[1].id ${localDirectoryUiState.directoryList[1].id}")
+                            notebookViewModel.insertNotebook("new", localDirectoryUiState.directoryList[1].id, localDirectoryUiState.directoryList)
+                        }
+                        else {
+                            notebookViewModel.insertNotebook("new")
+                        }
 //                        Log.d("add1", "local notebookList size ${localNotebookUiState.notebookList.size}")
                         val newNotebookId = notebookViewModel.uiState.value.notebookList.last().id
                         noteViewModel.initFirst(newNotebookId)
@@ -361,8 +376,14 @@ fun MainScreen(
 
                             onDirectoryClick = {
                                 id.intValue = it.id
-//                                Log.d("add1", "directoryid: ${it.id}")
-                                notebookViewModel.init(id.intValue)
+
+                                if(id.intValue == localDirectoryUiState.directoryList[0].id) {
+                                    notebookViewModel.init(id.intValue, localDirectoryUiState.directoryList)
+                                }
+                                else {
+                                    notebookViewModel.init(id.intValue)
+                                }
+                                Log.d("add1", "id ${localNotebookUiState.directoryID}")
                                 //notebookViewModel.getNotebookList(notebookList)
                             },
                             directories = localDirectoryUiState.directoryList,

@@ -90,6 +90,9 @@ import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
 import kotlinx.coroutines.delay
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -685,11 +688,28 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
 }
 
 fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>) {
-    val allText = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
-    // Here, use `allText` to call your AI API for generating the summary
+    var allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+
+//    File("../data/text.txt").writeText(allText)
+
+//    val command = listOf("sh", "-c", "python /Users/qiaoshenyu/Desktop/大二下/安卓/LargeHomework/zhipu.py")
+//    val processBuilder = ProcessBuilder(command)
+//    processBuilder.redirectErrorStream(true)
+//    processBuilder.environment()["SCRIPT_CONTENT"] = allText
+//    val process = processBuilder.start()
+//
+//    val output = StringBuilder()
+//    BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+//        var line: String?
+//        while (reader.readLine().also { line = it } != null) {
+//            output.append(line).append("\n")
+//        }
+//    }
+//    process.waitFor()
+//    allText = output.toString()
+
     Log.d("AI Summary", "Generated summary for text: $allText")
 }
-
 
 @Composable
 fun DisplayImageItem(

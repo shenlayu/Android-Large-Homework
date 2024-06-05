@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.simplenote.data.DirectoriesRepository
+import com.example.simplenote.data.Directory
 import com.example.simplenote.data.DirectoryWithNotebooks
 import com.example.simplenote.data.Notebook
 import com.example.simplenote.data.NotebooksRepository
@@ -50,19 +51,30 @@ class NotebookViewModel(
 //        }
 //        _uiState.value = _uiState.value.copy(directoryID = directoryID_, notebookList = newNotebookList)
 //    }
-    fun init(directoryID: Int? = null) {
-        viewModelScope.launch {
+    fun init(directoryID: Int? = null, directoryList: List<DirectoryDetails>? = null) {
+        runBlocking {
             directoryID?.let { did ->
-                val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(did).firstOrNull()!!
-                val newNotebookList = emptyList<NotebookDetails>().toMutableList()
-                directoryWithNotebooks.notebooks.forEach {
-                    newNotebookList.add(it.toNotebookDetails())
+                if(directoryList != null) { // 全部笔记
+                    val newNotebookList: MutableList<NotebookDetails> = emptyList<NotebookDetails>().toMutableList()
+                    directoryList.forEach {directoryDetails ->
+                        val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(directoryDetails.id).firstOrNull()!!
+                        directoryWithNotebooks.notebooks.forEach {notebook ->
+                            newNotebookList.add(notebook.toNotebookDetails())
+                        }
+                    }
+                    _uiState.value = _uiState.value.copy(notebookList = newNotebookList, directoryID = directoryID)
                 }
-                _uiState.value = _uiState.value.copy(notebookList = newNotebookList, directoryID = directoryID)
+                else {
+                    val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(did).firstOrNull()!!
+                    val newNotebookList = emptyList<NotebookDetails>().toMutableList()
+                    directoryWithNotebooks.notebooks.forEach {
+                        newNotebookList.add(it.toNotebookDetails())
+                    }
+                    _uiState.value = _uiState.value.copy(notebookList = newNotebookList, directoryID = directoryID)
+                }
             } ?: run {
                 _uiState.value = _uiState.value.copy(notebookList = emptyList(), directoryID = directoryID)
             }
-            Log.d("add1", "in ${_uiState.value.sortType}")
             sortBySortType()
         }
     }
@@ -82,25 +94,37 @@ class NotebookViewModel(
     fun changeSortType(sortTypeTo: SortType) {
         _uiState.value = _uiState.value.copy(sortType = sortTypeTo)
     }
-    fun insertNotebook(name: String) {
+    fun insertNotebook(name: String, directoryID: Int? = null, directoryList: List<DirectoryDetails>? = null) {
+        // todo 在全部笔记中插入要插到未分类
+        Log.d("add1", "directoryID $directoryID")
         val notebookDetails: NotebookDetails = NotebookDetails(
             name = name,
-            directoryId = _uiState.value.directoryID!!,
+            directoryId = directoryID ?: _uiState.value.directoryID!!,
             createTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
             changeTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         )
-        val newNotebookList = _uiState.value.notebookList.toMutableList().apply{ add(notebookDetails) }
-        _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
         runBlocking {
             notebookRepository.insertNotebook(notebookDetails.toNotebook())
         }
         runBlocking {
-            val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(_uiState.value.directoryID!!).firstOrNull()!!
-            val newNotebookListWithId = emptyList<NotebookDetails>().toMutableList()
-            directoryWithNotebooks.notebooks.forEach {
-                newNotebookListWithId.add(it.toNotebookDetails())
+            if(directoryID == null) {
+                val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(_uiState.value.directoryID!!).firstOrNull()!!
+                val newNotebookListWithId = emptyList<NotebookDetails>().toMutableList()
+                directoryWithNotebooks.notebooks.forEach {
+                    newNotebookListWithId.add(it.toNotebookDetails())
+                }
+                _uiState.value = _uiState.value.copy(notebookList = newNotebookListWithId)
             }
-            _uiState.value = _uiState.value.copy(notebookList = newNotebookListWithId)
+            else {
+                val newNotebookList: MutableList<NotebookDetails> = emptyList<NotebookDetails>().toMutableList()
+                directoryList!!.forEach {directoryDetails ->
+                    val directoryWithNotebooks: DirectoryWithNotebooks = directoriesRepository.getDirectoryWithNotebooks(directoryDetails.id).firstOrNull()!!
+                    directoryWithNotebooks.notebooks.forEach {notebook ->
+                        newNotebookList.add(notebook.toNotebookDetails())
+                    }
+                }
+                _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
+            }
         }
     }
     fun deleteNotebook(listID: Int) {
@@ -203,7 +227,7 @@ data class NotebookUiState (
 //    val directoryState: StateFlow<DirectoryState>? = null,
     val notebookList: List<NotebookDetails> = listOf<NotebookDetails>(),
     val directoryID: Int? = null,
-    val sortType: SortType = SortType.CreateTime
+    val sortType: SortType = SortType.CreateTime,
 )
 
 data class DirectoryState(
