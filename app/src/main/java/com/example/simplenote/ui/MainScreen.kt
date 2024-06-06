@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -45,9 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -63,9 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -79,10 +76,9 @@ import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.SortType
+import com.example.simplenote.ui.note.UserDetails
 import com.example.simplenote.ui.note.UserViewModel
-import com.example.simplenote.ui.note.toNotebook
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
@@ -102,19 +98,19 @@ fun MainScreen(
     val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
     val localNotebookUiState by notebookViewModel.uiState.collectAsState()
 
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+//    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
-    var showSortMenu by rememberSaveable { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
-    var showBottomSheet by rememberSaveable { mutableStateOf(false) } // 用于控制底部动作条的状态
+    var showBottomSheet by remember { mutableStateOf(false) } // 用于控制底部动作条的状态
     val (selectedTab, setSelectedTab) = rememberSaveable { mutableStateOf(0) }
 
     var isSelecting by rememberSaveable { mutableStateOf(false) }
     var selectedItems by rememberSaveable { mutableStateOf(setOf<Int>()) }
     val isSearchDialogOpen = remember { mutableStateOf(false) }
 
-    var isCreatingDirectory by rememberSaveable { mutableStateOf(false) }
+    var isCreatingDirectory by remember { mutableStateOf(false) }
 
     val isFirstLaunch = rememberSaveable { mutableStateOf(true) }
     if(localDirectoryUiState.directoryList.isNotEmpty()) {
@@ -172,7 +168,7 @@ fun MainScreen(
                 )
             } else {
                 TopAppBar(
-                    scrollBehavior = scrollBehavior,
+//                    scrollBehavior = scrollBehavior,
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -201,7 +197,7 @@ fun MainScreen(
                     navigationIcon = {
                         IconButton(onClick = navigateToMe, modifier = Modifier.padding(start = 8.dp)) {
                             Image(
-                                painter = painterResource(id = R.drawable.avatar),
+                                painter = rememberAsyncImagePainter(),
                                 contentDescription = "Avatar",
                                 modifier = Modifier.size(48.dp),
                                 contentScale = ContentScale.Crop,
@@ -221,27 +217,47 @@ fun MainScreen(
                             modifier = Modifier.clip(RoundedCornerShape(8.dp))
                         ) {
                             DropdownMenuItem(
-                                text = { Text("按修改时间排序") },
+                                text = {
+                                    Row {
+                                        Text("按修改时间排序", modifier = Modifier.align(Alignment.CenterVertically))
+                                        if (localNotebookUiState.sortType == SortType.ChangeTime) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.padding(start = 8.dp)
+                                            )
+                                        }
+                                    }
+
+                                },
                                 onClick = {
                                     notebookViewModel.changeSortType(SortType.ChangeTime)
                                     notebookViewModel.sortBySortType()
                                     showSortMenu = false
-//                                    sortValue = true
-                                  },
-                                modifier = Modifier
-                                    .fillMaxWidth()
+                                },
+                                modifier = Modifier.fillMaxWidth()
                             )
                             Divider()
                             DropdownMenuItem(
-                                text = { Text("按创建时间排序") },
+                                text = {
+                                    Row {
+                                        Text("按创建时间排序", modifier = Modifier.align(Alignment.CenterVertically))
+                                        if (localNotebookUiState.sortType == SortType.CreateTime) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.padding(start = 8.dp)
+                                            )
+                                        }
+                                    }
+
+                                },
                                 onClick = {
                                     notebookViewModel.changeSortType(SortType.CreateTime)
                                     notebookViewModel.sortBySortType()
                                     showSortMenu = false
-//                                    sortValue = true
-                                  },
-                                modifier = Modifier
-                                    .fillMaxWidth()
+                                },
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
@@ -344,7 +360,6 @@ fun MainScreen(
                         // todo: 处理移动操作的逻辑
                     },
                     onDelete = {
-                        // todo: 处理删除操作的逻辑
                         val sortedList = selectedItems.sortedDescending()
                         sortedList.forEach {
                             notebookViewModel.deleteNotebook(it)
@@ -364,7 +379,7 @@ fun MainScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
+//                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(padding)
         ) {
 //            TextField(
@@ -392,12 +407,10 @@ fun MainScreen(
 //                    onSelect = { handleItemSelect(index) },
 //                    onLongPress = { handleLongPress(index) },
 //                    enterEditScreen = {
-//                    //todo: 完成进入编辑界面的逻辑
 //                    }
 //                )
 //            }
             localNotebookUiState.notebookList.reversed().forEachIndexed() { idx, notebookDetails ->
-                // 保持99个项目以达到100个
                 val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
                 val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
                 val noteSecond = notebookViewModel.getSecondNote(notebookDetails.id)
@@ -414,7 +427,6 @@ fun MainScreen(
                         onSelect = { handleItemSelect(idx) },
                         onLongPress = { handleLongPress(idx) },
                         enterEditScreen = {
-                            //todo: 完成进入编辑界面的逻辑
                             noteViewModel.init(notebookDetails.id)
 
                             navigateToEdit()
@@ -663,5 +675,20 @@ fun CreateDirectorySheet(
                 .fillMaxWidth()
                 .padding(16.dp)
         )
+    }
+}
+
+@Preview
+@Composable
+fun haha() {
+    Row(
+    ) {
+        Text(text = "按照", modifier = Modifier.align(Alignment.CenterVertically))
+        if (true) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+            )
+        }
     }
 }

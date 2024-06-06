@@ -11,7 +11,6 @@ import com.example.simplenote.data.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -49,8 +48,9 @@ class UserViewModel(
             directoryRepository.insertDirectory(directoryDetails.toDirectory())
             directoryDetails.name = "未分类"
             directoryRepository.insertDirectory(directoryDetails.toDirectory())
-            directoryDetails.name = "已删除"
-            directoryRepository.insertDirectory(directoryDetails.toDirectory())
+            // 默认设置一个头像，在显示图片的时候判断一下是不是default
+            setAvatar(username, "default")
+            setNickname(username, "昵称")
         }
     }
     fun deleteUser(username: String) {
@@ -97,6 +97,18 @@ class UserViewModel(
                 usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
             userDetails?.let {
                 userDetails.nickname = nickname
+                usersRepository.updateUser(userDetails.toUser())
+            } ?: run {
+                println("setPassword ERROR: No user found")
+            }
+        }
+    }
+    fun setAvatar(username: String, avatar: String) {
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                userDetails.avatar = avatar
                 usersRepository.updateUser(userDetails.toUser())
             } ?: run {
                 println("setPassword ERROR: No user found")

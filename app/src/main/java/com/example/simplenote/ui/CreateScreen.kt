@@ -13,13 +13,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -63,14 +61,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,9 +86,6 @@ import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
 import kotlinx.coroutines.delay
-import java.io.BufferedReader
-import java.io.File
-import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -207,23 +200,23 @@ val sampleTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("正文"
 val contentItems = mutableStateOf(mutableListOf<ContentItem>(sampleTitleItem, sampleTextItem))
 
 // 预览编辑界面
-@Preview
-@Composable
-fun PreviewEditorScreen() {
-
-//    val sampleTitleItem = rememberSaveable {
-//        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
-//    }
-//    val sampleTextItem = rememberSaveable {
-//        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
-//    }
+//@Preview
+//@Composable
+//fun PreviewEditorScreen() {
 //
-//    val contentItems = rememberSaveable { mutableStateOf(mutableListOf<ContentItem>(
-//        sampleTitleItem, sampleTextItem
-//    )) }
-//
-    EditorScreen(contentItems = contentItems)
-}
+////    val sampleTitleItem = rememberSaveable {
+////        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
+////    }
+////    val sampleTextItem = rememberSaveable {
+////        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
+////    }
+////
+////    val contentItems = rememberSaveable { mutableStateOf(mutableListOf<ContentItem>(
+////        sampleTitleItem, sampleTextItem
+////    )) }
+////
+//    EditorScreen(contentItems = contentItems)
+//}
 
 
 @Composable
@@ -1308,61 +1301,61 @@ fun EditTextItem(textItem: ContentItem.TextItem) {
 //    }
 //}
 
-@Composable
-fun ImageViewer(imageUri: Uri, onDismiss: () -> Unit) {
-    var scale by remember { mutableStateOf(1f) }
-    var offsetX by remember { mutableStateOf(0f) }
-    var offsetY by remember { mutableStateOf(0f) }
+//@Composable
+//fun ImageViewer(imageUri: Uri, onDismiss: () -> Unit) {
+//    var scale by remember { mutableStateOf(1f) }
+//    var offsetX by remember { mutableStateOf(0f) }
+//    var offsetY by remember { mutableStateOf(0f) }
+//
+//    Box(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .background(Color.Black)
+//            .pointerInput(Unit) {
+//                detectTransformGestures { _, pan, zoom, _ ->
+//                    scale *= zoom
+//                    offsetX += pan.x
+//                    offsetY += pan.y
+//                }
+//            }
+//    ) {
+//        Image(
+//            painter = rememberAsyncImagePainter(imageUri),
+//            contentDescription = null,
+//            contentScale = ContentScale.Fit,
+//            modifier = Modifier
+//                .graphicsLayer(
+//                    scaleX = maxOf(1f, minOf(3f, scale)),
+//                    scaleY = maxOf(1f, minOf(3f, scale)),
+//                    translationX = offsetX,
+//                    translationY = offsetY
+//                )
+//                .fillMaxSize()
+//        )
+//        IconButton(
+//            onClick = onDismiss,
+//            modifier = Modifier.align(Alignment.TopEnd)
+//        ) {
+//            Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_close_24), contentDescription = "Close", tint = Color.White)
+//        }
+//    }
+//}
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale *= zoom
-                    offsetX += pan.x
-                    offsetY += pan.y
-                }
-            }
-    ) {
-        Image(
-            painter = rememberAsyncImagePainter(imageUri),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .graphicsLayer(
-                    scaleX = maxOf(1f, minOf(3f, scale)),
-                    scaleY = maxOf(1f, minOf(3f, scale)),
-                    translationX = offsetX,
-                    translationY = offsetY
-                )
-                .fillMaxSize()
-        )
-        IconButton(
-            onClick = onDismiss,
-            modifier = Modifier.align(Alignment.TopEnd)
-        ) {
-            Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_close_24), contentDescription = "Close", tint = Color.White)
-        }
-    }
-}
 
 
-
-@Preview
-@Composable
-fun PreviewDisplayImageItem() {
-    val imageUri = remember { Uri.parse(R.drawable.avatar.toString()) } // Replace URI with your image URI
-    val imageItem = remember { ContentItem.ImageItem(imageUri) }
-    val sampleTextItem = remember {
-        ContentItem.TextItem(mutableStateOf(TextFieldValue("Sample")))
-    }
-
-    val contentItems = remember { mutableStateOf(mutableListOf<ContentItem>(
-        sampleTextItem
-    )) }
-
-    // Preview the DisplayImageItem
-    DisplayImageItem(imageItem = imageItem, contentItems = contentItems, index = 0)
-}
+//@Preview
+//@Composable
+//fun PreviewDisplayImageItem() {
+//    val imageUri = remember { Uri.parse(R.drawable.avatar.toString()) } // Replace URI with your image URI
+//    val imageItem = remember { ContentItem.ImageItem(imageUri) }
+//    val sampleTextItem = remember {
+//        ContentItem.TextItem(mutableStateOf(TextFieldValue("Sample")))
+//    }
+//
+//    val contentItems = remember { mutableStateOf(mutableListOf<ContentItem>(
+//        sampleTextItem
+//    )) }
+//
+//    // Preview the DisplayImageItem
+//    DisplayImageItem(imageItem = imageItem, contentItems = contentItems, index = 0)
+//}

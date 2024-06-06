@@ -1,6 +1,5 @@
 package com.example.simplenote.ui
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,12 +9,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,7 +37,7 @@ fun PasswordScreen(
     val localUserUiState by userViewModel.uiState.collectAsState()
 
     val localUserDetails: UserDetails? =
-        if(localUserUiState.loggedUserDetails != null)
+        if (localUserUiState.loggedUserDetails != null)
             userViewModel.getUser(localUserUiState.loggedUserDetails!!.userId)
         else
             null
@@ -44,6 +45,7 @@ fun PasswordScreen(
 
     var password by rememberSaveable { mutableStateOf("") }
     var confirm_password by rememberSaveable { mutableStateOf("") }
+    var showErrorDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -52,31 +54,39 @@ fun PasswordScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Text(
+            text = "重设密码",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
         TextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("密码") },
+            label = { Text("新密码") },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(bottom = 16.dp)
         )
         TextField(
             value = confirm_password,
             onValueChange = { confirm_password = it },
-            label = { Text("确认密码") },
+            label = { Text("确认新密码") },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(bottom = 24.dp)
         )
         Button(
             onClick = {
                 username?.let {
-                    if(password == confirm_password) {
+                    if (password == confirm_password) {
                         userViewModel.setPassword(username, password)
                         navigateToMe()
-                    }
-                    else {
-                        // todo
+                    } else {
+                        showErrorDialog = true
                     }
                 }
             },
@@ -84,5 +94,20 @@ fun PasswordScreen(
         ) {
             Text("确定")
         }
+    }
+
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = { Text("错误") },
+            text = { Text("密码不匹配，请重试") },
+            confirmButton = {
+                Button(
+                    onClick = { showErrorDialog = false }
+                ) {
+                    Text("确定")
+                }
+            }
+        )
     }
 }
