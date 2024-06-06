@@ -76,7 +76,6 @@ import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.SortType
-import com.example.simplenote.ui.note.UserDetails
 import com.example.simplenote.ui.note.UserViewModel
 import kotlinx.coroutines.launch
 
@@ -197,7 +196,7 @@ fun MainScreen(
                     navigationIcon = {
                         IconButton(onClick = navigateToMe, modifier = Modifier.padding(start = 8.dp)) {
                             Image(
-                                painter = rememberAsyncImagePainter(),
+                                painter = rememberAsyncImagePainter(R.drawable.avatar),
                                 contentDescription = "Avatar",
                                 modifier = Modifier.size(48.dp),
                                 contentScale = ContentScale.Crop,
