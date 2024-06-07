@@ -78,6 +78,7 @@ import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.SortType
 import com.example.simplenote.ui.note.UserViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
@@ -147,6 +148,7 @@ fun MainScreen(
                 val notebook = localNotebookUiState.notebookList[notebookIndex]
                 //todo: 完成移动的操作
 //                notebookViewModel.moveNotebook(notebook.id, targetDirectoryId)
+
             }
             clearSelection()
         }
@@ -289,8 +291,12 @@ fun MainScreen(
                         else {
                             notebookViewModel.insertNotebook("new")
                         }
-                        val newNotebookId = notebookViewModel.uiState.value.notebookList.last().id
-                        noteViewModel.initFirst(newNotebookId)
+                        var insertedID: Int = 0
+                        notebookViewModel.uiState.value.notebookList.forEach {
+                            insertedID = max(insertedID, it.id)
+                        }
+
+                        noteViewModel.initFirst(insertedID)
                         navigateToEdit()
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
@@ -354,13 +360,20 @@ fun MainScreen(
                         directories = localDirectoryUiState.directoryList,
                         onCancel = { showMoveMenu = false },
                         onConfirm = {
-                            moveNotebooksToDirectory()
+//                            moveNotebooksToDirectory()
                             showMoveMenu = false
+                            isSelecting = false
+                            selectedItems = emptySet()
+                            if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
+                                notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
+                                id.intValue = localDirectoryUiState.directoryList[0].id
+                            }
                         },
                         onDirectoryClick = { directory ->
                             moveToDirectoryId = directory.id
                         },
-                        selectedDirectoryId = moveToDirectoryId
+                        selectedNotebooks = selectedItems,
+                        notebookViewModel = notebookViewModel
                     )
                 }
             } else {
@@ -401,9 +414,9 @@ fun MainScreen(
                         subText1 = noteFirst?.content ?: "",
                         subText2 = noteSecond?.content ?: "",
                         isSelecting = isSelecting,
-                        isSelected = selectedItems.contains(idx),
-                        onSelect = { handleItemSelect(idx) },
-                        onLongPress = { handleLongPress(idx) },
+                        isSelected = selectedItems.contains(localNotebookUiState.notebookList.size - 1 - idx),
+                        onSelect = { handleItemSelect(localNotebookUiState.notebookList.size - 1 - idx) },
+                        onLongPress = { handleLongPress(localNotebookUiState.notebookList.size - 1 - idx) },
                         enterEditScreen = {
                             noteViewModel.init(notebookDetails.id)
                             navigateToEdit()
@@ -608,8 +621,10 @@ fun BottomSheetMoveContent(
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
     onDirectoryClick: (DirectoryDetails) -> Unit,
-    selectedDirectoryId: Int?
+    selectedNotebooks: Set<Int> = emptySet(),
+    notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
+    var directoryChosenID: Int by rememberSaveable { mutableStateOf(-1) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -627,16 +642,27 @@ fun BottomSheetMoveContent(
                 modifier = Modifier.align(Alignment.CenterVertically)
             )
             Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+            TextButton(onClick = {
+                // todo
+                selectedNotebooks.forEach {
+                    Log.d("add1", "listid ${it}")
+                    notebookViewModel.changeNotebookDirectory(it, directoryChosenID)
+                }
+                onConfirm()
+            }, modifier = Modifier.weight(1f)) {
                 Text("确定")
             }
         }
         Divider(color = Color.LightGray, thickness = 1.dp)
         LazyColumn {
-            items(directories) { directory ->
+            items(directories.drop(1)) { directory ->
                 Box(
                     modifier = Modifier
-                        .clickable { onDirectoryClick(directory) }
+                        .clickable {
+                            // todo
+                            directoryChosenID = directory.id
+                            onDirectoryClick(directory)
+                        }
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
@@ -645,7 +671,7 @@ fun BottomSheetMoveContent(
                     ) {
                         Text(directory.name)
                         Spacer(modifier = Modifier.weight(1f))
-                        if (selectedDirectoryId == directory.id) {
+                        if (directoryChosenID == directory.id) {
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
