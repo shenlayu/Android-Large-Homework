@@ -142,9 +142,6 @@ class DirectoryViewModel(
         }
     }
 
-    fun backdoor() {
-        _uiState.value = _uiState.value.copy(userID = 0)
-    }
 //    fun Updatetext(text: String) {
 //        _uiState.value = _uiState.value.copy(SavedText = text)
 //    }
