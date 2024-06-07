@@ -96,22 +96,19 @@ fun MainScreen(
     }
     val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
     val localNotebookUiState by notebookViewModel.uiState.collectAsState()
-
-//    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showSortMenu by remember { mutableStateOf(false) }
-
     var showBottomSheet by remember { mutableStateOf(false) } // 用于控制底部动作条的状态
+    var showMoveMenu by remember { mutableStateOf(false) }
     val (selectedTab, setSelectedTab) = rememberSaveable { mutableStateOf(0) }
-
     var isSelecting by rememberSaveable { mutableStateOf(false) }
     var selectedItems by rememberSaveable { mutableStateOf(setOf<Int>()) }
+    var moveToDirectoryId by rememberSaveable { mutableStateOf<Int?>(null) }
     val isSearchDialogOpen = remember { mutableStateOf(false) }
-
     var isCreatingDirectory by remember { mutableStateOf(false) }
-
     val isFirstLaunch = rememberSaveable { mutableStateOf(true) }
+
     if(localDirectoryUiState.directoryList.isNotEmpty()) {
         if(isFirstLaunch.value) {
             isFirstLaunch.value = false
@@ -144,11 +141,21 @@ fun MainScreen(
         handleItemSelect(index)
     }
 
+    fun moveNotebooksToDirectory() {
+        moveToDirectoryId?.let { targetDirectoryId ->
+            selectedItems.forEach { notebookIndex ->
+                val notebook = localNotebookUiState.notebookList[notebookIndex]
+                //todo: 完成移动的操作
+//                notebookViewModel.moveNotebook(notebook.id, targetDirectoryId)
+            }
+            clearSelection()
+        }
+    }
+
     Scaffold(
         topBar = {
             if (isSelecting) {
                 TopAppBar(
-//                    scrollBehavior = scrollBehavior,
                     title = { Text(if (selectedItems.isEmpty()) "请选择项目" else "已选择${selectedItems.size}项") },
                     navigationIcon = {
                         TextButton(onClick = { clearSelection() }) {
@@ -162,12 +169,10 @@ fun MainScreen(
                         }) {
                             Text("全选")
                         }
-
                     }
                 )
             } else {
                 TopAppBar(
-//                    scrollBehavior = scrollBehavior,
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -274,14 +279,6 @@ fun MainScreen(
             if (!isSelecting) {
                 FloatingActionButton(
                     onClick = {
-//                        scope.launch {
-//                            val index = notebookList.size
-//                            notebookViewModel.insertNotebook(name = "new")
-//                            //notebookViewModel.getNotebookList(notebookList)
-//                            id.intValue = notebookList[index].id
-//                            noteViewModel.init(id.intValue)
-////                            navigateToEdit()
-//                        }
                         // 处理全部笔记
                         if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
                             Log.d("add1", "localNotebookUiState.directoryID ${localNotebookUiState.directoryID}")
@@ -292,11 +289,9 @@ fun MainScreen(
                         else {
                             notebookViewModel.insertNotebook("new")
                         }
-//                        Log.d("add1", "local notebookList size ${localNotebookUiState.notebookList.size}")
                         val newNotebookId = notebookViewModel.uiState.value.notebookList.last().id
                         noteViewModel.initFirst(newNotebookId)
                         navigateToEdit()
-//                        sortValue = true
                     },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
@@ -344,20 +339,35 @@ fun MainScreen(
                                     notebookViewModel.init(id.intValue)
                                 }
                                 Log.d("add1", "id ${localNotebookUiState.directoryID}")
-                                //notebookViewModel.getNotebookList(notebookList)
                             },
                             directories = localDirectoryUiState.directoryList,
                         )
                     }
                 }
 
+            } else if (isSelecting && showMoveMenu) {
+                ModalBottomSheet(
+                    onDismissRequest = { showMoveMenu = false },
+                    sheetState = sheetState
+                ) {
+                    BottomSheetMoveContent(
+                        directories = localDirectoryUiState.directoryList,
+                        onCancel = { showMoveMenu = false },
+                        onConfirm = {
+                            moveNotebooksToDirectory()
+                            showMoveMenu = false
+                        },
+                        onDirectoryClick = { directory ->
+                            moveToDirectoryId = directory.id
+                        },
+                        selectedDirectoryId = moveToDirectoryId
+                    )
+                }
             } else {
                 BottomNavigationBar(
                     selectedTab = selectedTab,
                     isSelecting = isSelecting,
-                    onMove = {
-                        // todo: 处理移动操作的逻辑
-                    },
+                    onMove = { showMoveMenu = true },
                     onDelete = {
                         val sortedList = selectedItems.sortedDescending()
                         sortedList.forEach {
@@ -378,44 +388,13 @@ fun MainScreen(
     ) { padding ->
         LazyColumn(
             modifier = Modifier
-//                .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .padding(padding)
         ) {
-//            TextField(
-//                value = localUiState.SavedText,
-//                onValueChange = {
-//                    directoryViewModel.Updatetext((it))
-//                },
-//                singleLine = false,
-//                maxLines = 4,
-//                modifier = Modifier
-//            )
-//            Button(modifier = Modifier.fillMaxWidth(),
-//                onClick = {
-//                    directoryViewModel.init(0)
-//                }
-//                ) {}
-//            repeat(99) { index ->  // 保持99个项目以达到100个
-//                CustomListItem(
-//                    index = index,
-//                    text = "$index. 主要标题",
-//                    subText1 = if (index % 2 == 0) "次要信息" else null,
-//                    subText2 = "附加信息",
-//                    isSelecting = isSelecting,
-//                    isSelected = selectedItems.contains(index),
-//                    onSelect = { handleItemSelect(index) },
-//                    onLongPress = { handleLongPress(index) },
-//                    enterEditScreen = {
-//                    }
-//                )
-//            }
+
             localNotebookUiState.notebookList.reversed().forEachIndexed() { idx, notebookDetails ->
                 val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
                 val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
                 val noteSecond = notebookViewModel.getSecondNote(notebookDetails.id)
-//                val noteTitle: NoteDetails? = null
-//                val noteFirst: NoteDetails? = null
-//                val noteSecond: NoteDetails? = null
                 item {
                     CustomListItem(
                         text = noteTitle?.content ?: "",
@@ -427,9 +406,7 @@ fun MainScreen(
                         onLongPress = { handleLongPress(idx) },
                         enterEditScreen = {
                             noteViewModel.init(notebookDetails.id)
-
                             navigateToEdit()
-//                        sortValue = true
                         }
                     )
                 }
@@ -442,9 +419,6 @@ fun MainScreen(
 
     MainSearchDialog(isDialogOpen = isSearchDialogOpen, onSearch = { /* Handle search */ })
 }
-
-
-
 
 @Composable
 fun MainSearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit) {
@@ -547,7 +521,6 @@ fun CustomListItem(
     }
 }
 
-
 @Composable
 fun BottomNavigationBar(selectedTab: Int, isSelecting: Boolean, onMove: () -> Unit, onDelete: () -> Unit, onNoteClick: () -> Unit,
                         onMyClick: () -> Unit) {
@@ -583,6 +556,7 @@ fun BottomNavigationBar(selectedTab: Int, isSelecting: Boolean, onMove: () -> Un
         }
     }
 }
+
 @Composable
 fun BottomSheetContent(
     onClose: () -> Unit,
@@ -628,7 +602,63 @@ fun BottomSheetContent(
     }
 }
 
-
+@Composable
+fun BottomSheetMoveContent(
+    directories: List<DirectoryDetails>,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+    onDirectoryClick: (DirectoryDetails) -> Unit,
+    selectedDirectoryId: Int?
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                Text("取消")
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                "请选择笔记本",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.align(Alignment.CenterVertically)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            TextButton(onClick = onConfirm, modifier = Modifier.weight(1f)) {
+                Text("确定")
+            }
+        }
+        Divider(color = Color.LightGray, thickness = 1.dp)
+        LazyColumn {
+            items(directories) { directory ->
+                Box(
+                    modifier = Modifier
+                        .clickable { onDirectoryClick(directory) }
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(directory.name)
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (selectedDirectoryId == directory.id) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+                Divider(color = Color.LightGray, thickness = 1.dp)
+            }
+        }
+    }
+}
 
 @Composable
 fun CreateDirectorySheet(
@@ -674,20 +704,5 @@ fun CreateDirectorySheet(
                 .fillMaxWidth()
                 .padding(16.dp)
         )
-    }
-}
-
-@Preview
-@Composable
-fun haha() {
-    Row(
-    ) {
-        Text(text = "按照", modifier = Modifier.align(Alignment.CenterVertically))
-        if (true) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-            )
-        }
     }
 }
