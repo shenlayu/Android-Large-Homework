@@ -11,7 +11,6 @@ import com.example.simplenote.data.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -49,8 +48,9 @@ class UserViewModel(
             directoryRepository.insertDirectory(directoryDetails.toDirectory())
             directoryDetails.name = "未分类"
             directoryRepository.insertDirectory(directoryDetails.toDirectory())
-            directoryDetails.name = "已删除"
-            directoryRepository.insertDirectory(directoryDetails.toDirectory())
+            // 默认设置一个头像，在显示图片的时候判断一下是不是default
+            setAvatar(username, "default")
+            setNickname(username, "昵称")
         }
     }
     fun deleteUser(username: String) {
@@ -58,8 +58,6 @@ class UserViewModel(
             val user: User? = usersRepository.searchUser(username).firstOrNull()
             user?.let {
                 usersRepository.deleteUser(it)
-            } ?: run {
-                println("deleteUse ERROR: No user found")
             }
         }
     }
@@ -74,8 +72,6 @@ class UserViewModel(
             else {
                 return false
             }
-        } ?: run {
-            println("checkUser ERROR: No user found")
         }
         return false
     }
@@ -86,8 +82,6 @@ class UserViewModel(
             userDetails?.let {
                 userDetails.password = password
                 usersRepository.updateUser(userDetails.toUser())
-            } ?: run {
-                println("setPassword ERROR: No user found")
             }
         }
     }
@@ -98,8 +92,16 @@ class UserViewModel(
             userDetails?.let {
                 userDetails.nickname = nickname
                 usersRepository.updateUser(userDetails.toUser())
-            } ?: run {
-                println("setPassword ERROR: No user found")
+            }
+        }
+    }
+    fun setAvatar(username: String, avatar: String) {
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                userDetails.avatar = avatar
+                usersRepository.updateUser(userDetails.toUser())
             }
         }
     }
@@ -129,8 +131,6 @@ class UserViewModel(
             currentLoggedUser?.let { // 目前有登录用户
                 Log.d("add1", "why")
                 user?.let {
-                    Log.d("add1", "${user.id}")
-                    Log.d("add1", "${currentLoggedUser!!.id}")
                     loggedUserRepository.updateLoggedUser(
                         LoggedUser(
                             id = currentLoggedUser.id,
@@ -139,7 +139,6 @@ class UserViewModel(
                     )
                 }
             } ?:run { // 目前没有登录用户
-                Log.d("add1", "insert")
                 user?.let {
 //                    Log.d("add1", "userExist2")
                     loggedUserRepository.insertLoggedUser(
@@ -160,14 +159,44 @@ class UserViewModel(
             currentLoggedUser?.let { // 目前有登录用户
                 loggedUserRepository.deleteLoggedUser(it)
                 _uiState.value = _uiState.value.copy(loggedUserDetails = null)
-            }?:run { // 目前没有登录用户
-                println("logout ERROR: No user found")
             }
         }
     }
     fun checkUserExist(username: String): Boolean {
         // TODO
-        return false
+        var returnVal: Boolean = false
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                returnVal = true
+            } ?: run {
+                returnVal = false
+            }
+        }
+        return returnVal
+    }
+    fun getUserAvatar(userID: Int): String {
+        var avater: String = ""
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUserById(userID).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                avater = userDetails.avatar
+            }
+        }
+        return avater
+    }
+    fun getUserNickname(userID: Int): String {
+        var nickname: String = ""
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUserById(userID).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                nickname = userDetails.nickname
+            }
+        }
+        return nickname
     }
 }
 

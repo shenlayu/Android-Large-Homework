@@ -1,142 +1,202 @@
 package com.example.simplenote.ui
 
-import android.util.Log
+import android.content.ContentValues
+import android.net.Uri
+import android.provider.MediaStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
-import com.example.simplenote.data.User
-import com.example.simplenote.ui.note.UserDetails
 import com.example.simplenote.ui.note.UserViewModel
 
 @Composable
 fun MeScreen(
     userViewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    navigateToMain: () -> Unit = {},
     navigateToPassword: () -> Unit = {},
+    navigateToMain: () -> Unit = {},
     navigateToWelcome: () -> Unit = {}
 ) {
-//    Log.d("add1", "in")
-    val localUserUiState by userViewModel.uiState.collectAsState()
-//    Log.d("add1", "in2 ${localUserUiState.loggedUserDetails}")
+    var showImagePickerDialog by rememberSaveable { mutableStateOf(false) }
+    var imageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var selectedTab by remember { mutableStateOf(1) }
+    val context = LocalContext.current
 
-//    Log.d("add1", "in3")
+    // Launcher for taking a photo
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
 
-    var localUserDetails: UserDetails? = null
-    localUserUiState.loggedUserDetails?.let {
-        localUserDetails = userViewModel.getUser(localUserUiState.loggedUserDetails!!.userId)
+        }
     }
 
-    var nickname by remember { mutableStateOf(TextFieldValue(localUserDetails?.nickname ?: ""))}
-    var isEditingNickname by remember { mutableStateOf(false) }
+    // Launcher for selecting an image from gallery
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imageUri = uri
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-        Image(
-            painter = painterResource(id = R.drawable.avatar), // Placeholder avatar
-            contentDescription = "Avatar",
-            modifier = Modifier
-                .clip(CircleShape)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        if (isEditingNickname) {
-            TextField(
-                value = nickname,
-                onValueChange = { nickname = it },
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = {
-                localUserDetails?.let {
-                    userViewModel.setNickname(localUserDetails!!.username, nickname.text)
-                }
-                isEditingNickname = false
-            }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.avatar), // Check icon resource
-                    contentDescription = "Save"
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Home, contentDescription = "笔记") },
+                    label = { Text("笔记") },
+                    selected = selectedTab == 0,
+                    onClick = {
+                        selectedTab = 0
+                        navigateToMain()
+                    }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Person, contentDescription = "我的") },
+                    label = { Text("我的") },
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 }
                 )
             }
-        } else {
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            imageUri?.let {
+                Image(
+                    painter = rememberAsyncImagePainter(it),
+                    contentDescription = "Avatar",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .clickable { showImagePickerDialog = true },
+                    contentScale = ContentScale.Crop
+                )
+            } ?: Image(
+                painter = painterResource(id = R.drawable.avatar), // Placeholder avatar
+                contentDescription = "Avatar",
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .clickable { showImagePickerDialog = true },
+                contentScale = ContentScale.Crop
+            )
+            Spacer(modifier = Modifier.padding(8.dp))
             Text(
-                text = nickname.text,
+                text = "小明",
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+                fontWeight = FontWeight.Bold
             )
-            IconButton(onClick = { isEditingNickname = true }) {
-                Icon(
-                    painter = painterResource(id = R.drawable.avatar), // Edit icon resource
-                    contentDescription = "Edit"
-                )
+
+            Spacer(modifier = Modifier.padding(20.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Button(
+                    modifier = Modifier.padding(end = 16.dp),
+                    onClick = navigateToPassword
+                ) {
+                    Text("重置密码")
+                }
+                Button(
+                    onClick = {
+                        userViewModel.logout()
+                        navigateToWelcome()
+                    },
+                    modifier = Modifier.padding(start = 16.dp)
+                ) {
+                    Text("退出登录")
+                }
             }
         }
     }
 
-        Divider(color = Color.Gray, thickness = 1.dp)
-
-        Button(
-            onClick = navigateToPassword,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("设置密码")
-        }
-
-        Button(
-            onClick = {
-                userViewModel.logout()
-                navigateToWelcome()
-                      },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("登出")
-        }
-        Button(
-            onClick = navigateToMain,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text("去预览")
-        }
+    if (showImagePickerDialog) {
+        AlertDialog(
+            onDismissRequest = { showImagePickerDialog = false },
+            title = { Text("选择图片来源") },
+            text = { Text("请选择拍照或本地导入图片") },
+            confirmButton = {
+                Column {
+                    Button(
+                        onClick = {
+                            val uri = createImageUri(context) // Pass context to createImageUri function
+                            imageUri = uri
+                            takePictureLauncher.launch(uri)
+                            showImagePickerDialog = false
+                        }
+                    ) {
+                        Text("拍照")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            pickImageLauncher.launch("image/*")
+                            showImagePickerDialog = false
+                        }
+                    ) {
+                        Text("本地导入")
+                    }
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showImagePickerDialog = false }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
     }
+}
+
+fun createImageUri(context: android.content.Context): Uri {
+    val contentResolver = context.contentResolver
+    val contentValues = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, "new_avatar.jpg")
+        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+    }
+    return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)!!
 }

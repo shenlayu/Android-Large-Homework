@@ -13,13 +13,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -63,14 +61,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,13 +85,17 @@ import com.example.simplenote.data.NoteType
 import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
+import com.github.kittinunf.fuel.httpPost
+import com.github.kittinunf.result.Result
+import com.google.gson.Gson
+import com.google.gson.JsonObject
 import kotlinx.coroutines.delay
-import java.io.BufferedReader
-import java.io.File
-import java.io.InputStreamReader
+import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
 
 // 为浏览编辑界面临时创建的数据类，文字类、图片类、音频类
 
@@ -207,23 +207,23 @@ val sampleTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("正文"
 val contentItems = mutableStateOf(mutableListOf<ContentItem>(sampleTitleItem, sampleTextItem))
 
 // 预览编辑界面
-@Preview
-@Composable
-fun PreviewEditorScreen() {
-
-//    val sampleTitleItem = rememberSaveable {
-//        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
-//    }
-//    val sampleTextItem = rememberSaveable {
-//        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
-//    }
+//@Preview
+//@Composable
+//fun PreviewEditorScreen() {
 //
-//    val contentItems = rememberSaveable { mutableStateOf(mutableListOf<ContentItem>(
-//        sampleTitleItem, sampleTextItem
-//    )) }
-//
-    EditorScreen(contentItems = contentItems)
-}
+////    val sampleTitleItem = rememberSaveable {
+////        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
+////    }
+////    val sampleTextItem = rememberSaveable {
+////        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
+////    }
+////
+////    val contentItems = rememberSaveable { mutableStateOf(mutableListOf<ContentItem>(
+////        sampleTitleItem, sampleTextItem
+////    )) }
+////
+//    EditorScreen(contentItems = contentItems)
+//}
 
 
 @Composable
@@ -625,7 +625,8 @@ fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<Mut
             confirmButton = {
                 Button(onClick = {
                     isDialogOpen.value = false
-                    generateSummary(contentItems)
+                    val content = generateSummary(contentItems)
+
                 }) {
                     Text("生成")
                 }
@@ -687,8 +688,71 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
     }
 }
 
-fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>) {
-    var allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): String {
+    val allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+
+    val url = "http://183.173.162.33:8080/process_string"
+    val jsonObject = JSONObject()
+    jsonObject.put("input_string", allText)
+    val jsonString = jsonObject.toString()
+    Log.d("AI Summary", jsonString)
+
+    var returnVal = "FAIL"
+    runBlocking {
+        url.httpPost()
+            .header("Content-Type", "application/json")
+            .body(jsonString)
+            .responseString { request, response, result ->
+                when (result) {
+                    is Result.Success -> {
+                        val data = result.get()
+                        val gson = Gson()
+                        val jsonObject = gson.fromJson(data, JsonObject::class.java)
+                        val outputString = jsonObject.get("output_string").asString
+//                        Log.d("AI Summary", "success $outputString")
+                        returnVal = outputString
+                    }
+                    is Result.Failure -> {
+                        val ex = result.getException()
+//                        Log.d("AI Summary", "false $ex")
+                    }
+                }
+            }
+    }
+    return returnVal
+
+
+//    model.testInvoke(allText)
+//    var openai: OpenAI
+//    runBlocking {
+//        openai = OpenAI(
+//            "",
+//            proxy = ProxyConfig.Socks("localhost", 7890)
+//        )
+//    }
+//
+//    val chatCompletionRequest = ChatCompletionRequest(
+//        model = ModelId("gpt-3.5-turbo"),
+//        messages = listOf(
+//            ChatMessage(
+//                role = ChatRole.User,
+//                content = "我接下来将给你发送一段笔记，请你帮我对其内容进行概括。"
+//            ),
+//            ChatMessage(
+//                role = ChatRole.User,
+//                content = "好的，我将为您概括您的笔记内容。请给我您的笔记。"
+//            ),
+//            ChatMessage(
+//                role = ChatRole.User,
+//                content = allText
+//            ),
+//        )
+//    )
+//    var completion: ChatCompletion
+//    runBlocking {
+//        completion = openai.chatCompletion(chatCompletionRequest)
+//    }
+//    val text: String = completion.choices[0].message.content.toString()
 
 //    File("../data/text.txt").writeText(allText)
 
@@ -707,8 +771,6 @@ fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>) {
 //    }
 //    process.waitFor()
 //    allText = output.toString()
-
-    Log.d("AI Summary", "Generated summary for text: $allText")
 }
 
 @Composable
@@ -1308,61 +1370,61 @@ fun EditTextItem(textItem: ContentItem.TextItem) {
 //    }
 //}
 
-@Composable
-fun ImageViewer(imageUri: Uri, onDismiss: () -> Unit) {
-    var scale by remember { mutableStateOf(1f) }
-    var offsetX by remember { mutableStateOf(0f) }
-    var offsetY by remember { mutableStateOf(0f) }
+//@Composable
+//fun ImageViewer(imageUri: Uri, onDismiss: () -> Unit) {
+//    var scale by remember { mutableStateOf(1f) }
+//    var offsetX by remember { mutableStateOf(0f) }
+//    var offsetY by remember { mutableStateOf(0f) }
+//
+//    Box(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .background(Color.Black)
+//            .pointerInput(Unit) {
+//                detectTransformGestures { _, pan, zoom, _ ->
+//                    scale *= zoom
+//                    offsetX += pan.x
+//                    offsetY += pan.y
+//                }
+//            }
+//    ) {
+//        Image(
+//            painter = rememberAsyncImagePainter(imageUri),
+//            contentDescription = null,
+//            contentScale = ContentScale.Fit,
+//            modifier = Modifier
+//                .graphicsLayer(
+//                    scaleX = maxOf(1f, minOf(3f, scale)),
+//                    scaleY = maxOf(1f, minOf(3f, scale)),
+//                    translationX = offsetX,
+//                    translationY = offsetY
+//                )
+//                .fillMaxSize()
+//        )
+//        IconButton(
+//            onClick = onDismiss,
+//            modifier = Modifier.align(Alignment.TopEnd)
+//        ) {
+//            Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_close_24), contentDescription = "Close", tint = Color.White)
+//        }
+//    }
+//}
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale *= zoom
-                    offsetX += pan.x
-                    offsetY += pan.y
-                }
-            }
-    ) {
-        Image(
-            painter = rememberAsyncImagePainter(imageUri),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .graphicsLayer(
-                    scaleX = maxOf(1f, minOf(3f, scale)),
-                    scaleY = maxOf(1f, minOf(3f, scale)),
-                    translationX = offsetX,
-                    translationY = offsetY
-                )
-                .fillMaxSize()
-        )
-        IconButton(
-            onClick = onDismiss,
-            modifier = Modifier.align(Alignment.TopEnd)
-        ) {
-            Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_close_24), contentDescription = "Close", tint = Color.White)
-        }
-    }
-}
 
 
-
-@Preview
-@Composable
-fun PreviewDisplayImageItem() {
-    val imageUri = remember { Uri.parse(R.drawable.avatar.toString()) } // Replace URI with your image URI
-    val imageItem = remember { ContentItem.ImageItem(imageUri) }
-    val sampleTextItem = remember {
-        ContentItem.TextItem(mutableStateOf(TextFieldValue("Sample")))
-    }
-
-    val contentItems = remember { mutableStateOf(mutableListOf<ContentItem>(
-        sampleTextItem
-    )) }
-
-    // Preview the DisplayImageItem
-    DisplayImageItem(imageItem = imageItem, contentItems = contentItems, index = 0)
-}
+//@Preview
+//@Composable
+//fun PreviewDisplayImageItem() {
+//    val imageUri = remember { Uri.parse(R.drawable.avatar.toString()) } // Replace URI with your image URI
+//    val imageItem = remember { ContentItem.ImageItem(imageUri) }
+//    val sampleTextItem = remember {
+//        ContentItem.TextItem(mutableStateOf(TextFieldValue("Sample")))
+//    }
+//
+//    val contentItems = remember { mutableStateOf(mutableListOf<ContentItem>(
+//        sampleTextItem
+//    )) }
+//
+//    // Preview the DisplayImageItem
+//    DisplayImageItem(imageItem = imageItem, contentItems = contentItems, index = 0)
+//}

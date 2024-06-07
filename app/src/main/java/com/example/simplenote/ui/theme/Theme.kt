@@ -1,13 +1,11 @@
-package com.example.simplenote.ui.theme
-
+package com.example.compose
 import android.app.Activity
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
@@ -16,7 +14,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-
+import com.example.ui.theme.AppTypography
 
 private val lightScheme = lightColorScheme(
     primary = primaryLight,
@@ -47,7 +45,6 @@ private val lightScheme = lightColorScheme(
     inverseSurface = inverseSurfaceLight,
     inverseOnSurface = inverseOnSurfaceLight,
     inversePrimary = inversePrimaryLight,
-
 )
 
 private val darkScheme = darkColorScheme(
@@ -79,7 +76,6 @@ private val darkScheme = darkColorScheme(
     inverseSurface = inverseSurfaceDark,
     inverseOnSurface = inverseOnSurfaceDark,
     inversePrimary = inversePrimaryDark,
-
 )
 
 private val mediumContrastLightColorScheme = lightColorScheme(
@@ -175,6 +171,7 @@ private val mediumContrastDarkColorScheme = darkColorScheme(
     inverseSurface = inverseSurfaceDarkMediumContrast,
     inverseOnSurface = inverseOnSurfaceDarkMediumContrast,
     inversePrimary = inversePrimaryDarkMediumContrast,
+
 )
 
 private val highContrastDarkColorScheme = darkColorScheme(
@@ -209,7 +206,6 @@ private val highContrastDarkColorScheme = darkColorScheme(
 
 )
 
-
 @Immutable
 data class ColorFamily(
     val color: Color,
@@ -224,7 +220,7 @@ val unspecified_scheme = ColorFamily(
 
 @Composable
 fun SimpleNoteTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable() () -> Unit
@@ -234,7 +230,7 @@ fun SimpleNoteTheme(
           val context = LocalContext.current
           if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
       }
-
+      
       darkTheme -> darkScheme
       else -> lightScheme
   }
@@ -249,7 +245,7 @@ fun SimpleNoteTheme(
 
   MaterialTheme(
     colorScheme = colorScheme,
-    typography = Typography,
+    typography = AppTypography,
     content = content
   )
 }

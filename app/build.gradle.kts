@@ -46,6 +46,7 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
         }
     }
 }
@@ -78,5 +79,9 @@ dependencies {
     ksp("androidx.room:room-compiler:${rootProject.extra["room_version"]}")
     implementation(libs.androidx.room.ktx)
 
+    implementation("com.github.kittinunf.fuel:fuel:2.3.1")
+    implementation("com.google.code.gson:gson:2.8.6")
+    implementation("org.json:json:20210307")
+    implementation("cn.bigmodel.openapi:oapi-java-sdk:release-V4-2.0.2")
 
 }
