@@ -105,18 +105,6 @@ class UserViewModel(
             }
         }
     }
-    fun setAvatar(username: String, avatar: String) {
-        runBlocking {
-            val userDetails: UserDetails? =
-                usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
-            userDetails?.let {
-                userDetails.avatar = avatar
-                usersRepository.updateUser(userDetails.toUser())
-            } ?: run {
-                println("setPassword ERROR: No user found")
-            }
-        }
-    }
     fun getUser(userID: Int): UserDetails? {
         val user = runBlocking {
             usersRepository.searchUserById(userID).firstOrNull()
