@@ -137,6 +137,18 @@ class NotebookViewModel(
             _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
         }
     }
+    fun changeNotebookDirectory(listID: Int, directoryID: Int) {
+        if(listID < _uiState.value.notebookList.size) {
+            val notebookDetails = _uiState.value.notebookList[listID]
+            notebookDetails.directoryId = directoryID
+            val notebook = notebookDetails.toNotebook()
+            runBlocking {
+                notebookRepository.updateNotebook(notebook)
+            }
+            val newNotebookList = _uiState.value.notebookList.toMutableList().apply{ removeAt(listID) }
+            _uiState.value = _uiState.value.copy(notebookList = newNotebookList)
+        }
+    }
     fun changeNotebookName(listID: Int, name: String) {
         if(listID < _uiState.value.notebookList.size) {
             val newNotebookList = _uiState.value.notebookList.toMutableList()
