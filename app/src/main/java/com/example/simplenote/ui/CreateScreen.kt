@@ -1,5 +1,6 @@
 package com.example.simplenote.ui
 
+import android.content.ClipData
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -13,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +30,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -52,6 +56,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,8 +68,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
@@ -89,19 +99,21 @@ import com.github.kittinunf.fuel.httpPost
 import com.github.kittinunf.result.Result
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
 
 // 为浏览编辑界面临时创建的数据类，文字类、图片类、音频类
 
 val undoStack: MutableList<List<ContentItem>> = mutableListOf()
 // 被撤销内容项列表的栈，用于重做操作
 val redoStack: MutableList<List<ContentItem>> = mutableListOf()
+
 sealed class ContentItem {
     abstract fun copy(): ContentItem
 
@@ -143,39 +155,35 @@ sealed class ContentItem {
 }
 
 @Composable
-fun covertNoteDetailsToContentItem (noteDetails: NoteDetails): ContentItem {
+fun covertNoteDetailsToContentItem(noteDetails: NoteDetails): ContentItem {
     var contentItem: ContentItem? = null
-    if(noteDetails.type == NoteType.Text) {
+    if (noteDetails.type == NoteType.Text) {
         contentItem = ContentItem.TextItem(
             text = remember { mutableStateOf(TextFieldValue(noteDetails.content)) },
             isTitle = noteDetails.isTitle
         )
-    }
-    else if(noteDetails.type == NoteType.Photo) {
+    } else if (noteDetails.type == NoteType.Photo) {
         contentItem = ContentItem.ImageItem(Uri.parse(noteDetails.content))
-    }
-    else if(noteDetails.type == NoteType.Audio) {
+    } else if (noteDetails.type == NoteType.Audio) {
         contentItem = ContentItem.AudioItem(Uri.parse(noteDetails.content))
-    }
-    else if(noteDetails.type == NoteType.Video) {
+    } else if (noteDetails.type == NoteType.Video) {
         contentItem = ContentItem.VideoItem(Uri.parse(noteDetails.content))
     }
     return contentItem!!
 }
+
 @Composable
 fun convertToContentItemList(noteDetailsList: List<NoteDetails>): List<ContentItem> {
     val contentItemList: MutableList<ContentItem> = emptyList<ContentItem>().toMutableList()
     noteDetailsList.forEach {
         contentItemList.add(covertNoteDetailsToContentItem(it))
     }
-//    Log.d("add1", "$contentItemList")
     return contentItemList
 }
 
-
 // 现在修改 saveState、undo 和 redo 方法，使用 copy 方法
 fun saveState(contentItems: List<ContentItem>) {
-    if (undoStack.size >= 5) {
+    if (undoStack.size >= 10) {
         undoStack.removeAt(0)
     }
     undoStack.add(contentItems.map { it.copy() })  // 使用 copy 方法深拷贝
@@ -200,31 +208,10 @@ fun clearRedoStack() {
     redoStack.clear()
 }
 
-
 val sampleTitleItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
 val sampleTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
 
 val contentItems = mutableStateOf(mutableListOf<ContentItem>(sampleTitleItem, sampleTextItem))
-
-// 预览编辑界面
-//@Preview
-//@Composable
-//fun PreviewEditorScreen() {
-//
-////    val sampleTitleItem = rememberSaveable {
-////        ContentItem.TextItem(mutableStateOf(TextFieldValue("标题")), isTitle = true)
-////    }
-////    val sampleTextItem = rememberSaveable {
-////        ContentItem.TextItem(mutableStateOf(TextFieldValue("正文")))
-////    }
-////
-////    val contentItems = rememberSaveable { mutableStateOf(mutableListOf<ContentItem>(
-////        sampleTitleItem, sampleTextItem
-////    )) }
-////
-//    EditorScreen(contentItems = contentItems)
-//}
-
 
 @Composable
 fun EditorScreen(
@@ -238,72 +225,155 @@ fun EditorScreen(
     val currentDate = remember { dateFormat.format(Date()) }
     val isAIDialogOpen = remember { mutableStateOf(false) }
     val isSearchDialogOpen = remember { mutableStateOf(false) }
+    val isLoading = remember { mutableStateOf(false) }
+    val aiSummary = remember { mutableStateOf("") }
     val localNoteUiState by noteViewModel.uiState.collectAsState()
     val noteList = remember {
         mutableListOf<NoteDetails>()
     }
 
     var canLaunch by rememberSaveable { mutableStateOf(true) }
-//    Log.d("add1", "out ${localNoteUiState.noteList.size}")
-    if(canLaunch and localNoteUiState.noteList.isNotEmpty()) {
+    if (canLaunch && localNoteUiState.noteList.isNotEmpty()) {
         contentItems.value = convertToContentItemList(localNoteUiState.noteList).toMutableList()
         canLaunch = false
     }
 
-    var bottomPadding by remember { mutableStateOf(0.dp) }
-
-//    noteViewModel.insertNote(-1, "标题", type = NoteType.Text)
-
-
-
-    // 改为直接计算字符串的长度，适用于中文字符的统计
     val totalCharacters = contentItems.value.sumOf {
         when (it) {
             is ContentItem.TextItem -> it.text.value.text.length
             else -> 0
         }
     }
-    val notebookName = "我的笔记本" // 假设笔记本名称是固定的，实际使用中可能来自外部数据源
-//    val a = convertToNoteDetailsList(contentItems.value, )
+    val notebookName = "我的笔记本"
+
+    val searchTerm = remember { mutableStateOf("") }
+    val matches = remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
+    val currentMatchIndex = remember { mutableStateOf(0) }
+
     Scaffold(
-        topBar = { EditorTopBar(
-            onBack = navigateToMain,
-            onUndo = { undo(contentItems = contentItems)},
-            onRedo = { redo(contentItems)},
-            onSearch = {isSearchDialogOpen.value = true},
-            onDone = {
-                noteViewModel.saveNotes(contentItems.value)
-                notebookViewModel.sortBySortType()
-                canLaunch = true
-                notebookViewModel.updateNotebookChangeTime()
-            }
-        ) },
+        topBar = {
+            EditorTopBar(
+                onBack = navigateToMain,
+                onUndo = { undo(contentItems = contentItems)
+                    matches.value = searchAndHighlight(contentItems, searchTerm.value)},
+                onRedo = { redo(contentItems = contentItems)
+                    matches.value = searchAndHighlight(contentItems, searchTerm.value)},
+                onSearch = {
+                    isSearchDialogOpen.value = true
+                },
+                onDone = {
+                    noteViewModel.saveNotes(contentItems.value)
+                    notebookViewModel.sortBySortType()
+                    canLaunch = true
+                    notebookViewModel.updateNotebookChangeTime()
+                }
+            )
+        },
         bottomBar = {
-            ControlPanel(contentItems, LocalContext.current, onAIClick = {isAIDialogOpen.value = true})
+            ControlPanel(contentItems, LocalContext.current, onAIClick = { isAIDialogOpen.value = true })
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
             InfoBar(currentDate, totalCharacters, notebookName)
-            Divider(color = Color.LightGray, thickness = 1.dp) // 添加分割线
+            Divider(color = Color.LightGray, thickness = 1.dp)
             LazyColumn {
                 itemsIndexed(contentItems.value) { index, item ->
                     when (item) {
-                        is ContentItem.TextItem -> EditTextItem(item)
+                        is ContentItem.TextItem -> EditTextItem(
+                            textItem = item,
+                            searchTerm = searchTerm.value,
+                            matches = matches.value,
+                            currentMatchIndex = currentMatchIndex.value,
+                            index = index,
+                            onTextChange = { idx, newValue ->
+
+                                matches.value = searchAndHighlight(contentItems, searchTerm.value)
+
+                            }
+                        )
                         is ContentItem.ImageItem -> DisplayImageItem(item, contentItems, index)
                         is ContentItem.AudioItem -> DisplayAudioItem(item, LocalContext.current, contentItems, index)
                         is ContentItem.VideoItem -> DisplayVideoItem(item, LocalContext.current, contentItems, index)
-
                     }
                 }
             }
-
+            SearchNavigation(
+                searchTerm = searchTerm,
+                matches = matches,
+                currentMatchIndex = currentMatchIndex,
+                contentItems = contentItems
+            )
         }
     }
-    AIDialog(isAIDialogOpen, contentItems)
-    SearchDialog(isDialogOpen = isSearchDialogOpen) {
 
+    AIDialog(isDialogOpen = isAIDialogOpen, contentItems, isLoading, aiSummary)
+    SearchDialog(isDialogOpen = isSearchDialogOpen) { searchQuery ->
+        searchTerm.value = searchQuery
+        matches.value = searchAndHighlight(contentItems, searchTerm.value)
+        currentMatchIndex.value = 0
     }
+    LoadingDialog(isLoading = isLoading)
+    AISummaryDialog(aiSummary = aiSummary)
 }
+
+@Composable
+fun EditTextItem(
+    textItem: ContentItem.TextItem,
+    searchTerm: String,
+    matches: List<Pair<Int, Int>>,
+    currentMatchIndex: Int,
+    index: Int,
+    onTextChange: (Int, TextFieldValue) -> Unit
+) {
+    val annotatedText = buildAnnotatedString {
+        append(textItem.text.value.text)
+        matches.filter { it.first == index }.forEachIndexed { matchIndex, range ->
+            addStyle(
+                style = SpanStyle(
+                    background = if (matchIndex == currentMatchIndex) Color.Yellow else Color.LightGray
+                ),
+                start = range.second,
+                end = range.second + searchTerm.length
+            )
+        }
+    }
+    val textFieldValue = textItem.text.value.copy(annotatedString = annotatedText)
+
+    TextField(
+        value = textFieldValue,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(2.dp)
+            .onFocusChanged { focusState ->
+                textItem.isFocused.value = focusState.isFocused
+            },
+        onValueChange = { newValue ->
+            saveState(contentItems.value)
+            clearRedoStack()
+            textItem.text.value = newValue
+            onTextChange(index, newValue)
+        },
+        textStyle = androidx.compose.ui.text.TextStyle(
+            fontSize = if (textItem.isTitle) 20.sp else 14.sp, // 标题使用更大的字体
+            color = Color.Black
+        ),
+        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+        colors = TextFieldDefaults.colors(
+            cursorColor = Color.Black,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent
+        )
+    )
+}
+
+
+
+
+
 
 // 在topbar和底下的编辑区之间加一行小字，小字显示分三栏，分别显示当前日期、该笔记总字数、该笔记所属笔记本名称
 @Composable
@@ -357,42 +427,59 @@ fun InfoBar(currentDate: String, totalCharacters: Int, notebookName: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorTopBar(onBack: () -> Unit = {}, onUndo: () -> Unit, onRedo: () -> Unit, onSearch: () -> Unit, onDone: () -> Unit) {
+fun EditorTopBar(
+    onBack: () -> Unit = {},
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    onSearch: () -> Unit,
+    onDone: () -> Unit
+) {
+    val isUndoEnabled = remember { mutableStateOf(undoStack.isNotEmpty()) }
+    val isRedoEnabled = remember { mutableStateOf(redoStack.isNotEmpty()) }
+
+    LaunchedEffect(undoStack.size, redoStack.size) {
+        isUndoEnabled.value = undoStack.isNotEmpty()
+        isRedoEnabled.value = redoStack.isNotEmpty()
+    }
+
     TopAppBar(
         title = {},
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_arrow_back_24), contentDescription = "Back")
+                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_arrow_back_24), contentDescription = "返回")
             }
         },
         actions = {
             // Undo button
-            IconButton(onClick = onUndo) {
-                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_undo_24), contentDescription = "Undo")
+            IconButton(onClick = onUndo, enabled = isUndoEnabled.value) {
+                Icon(
+                    painter = rememberAsyncImagePainter(R.drawable.baseline_undo_24),
+                    contentDescription = "撤回",
+                    tint = if (isUndoEnabled.value) Color.Unspecified else Color.Gray
+                )
             }
             // Redo button
-            IconButton(onClick = onRedo
-            ) {
-                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_redo_24), contentDescription = "Redo")
+            IconButton(onClick = onRedo, enabled = isRedoEnabled.value) {
+                Icon(
+                    painter = rememberAsyncImagePainter(R.drawable.baseline_redo_24),
+                    contentDescription = "重做",
+                    tint = if (isRedoEnabled.value) Color.Unspecified else Color.Gray
+                )
             }
             // Search button
             IconButton(onClick = onSearch) {
-                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_search_24), contentDescription = "Search")
+                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_search_24), contentDescription = "搜索")
             }
             // Done button
-            IconButton(onClick =onDone) {
-                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_check_24), contentDescription = "Done")
+            IconButton(onClick = onDone) {
+                Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_save_24), contentDescription = "保存")
             }
         }
     )
 }
 
-
 @Composable
 fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: Context, onAIClick: () -> Unit) {
-//    val focusRequester = remember {
-//        FocusRequester()
-//    }
 
     val imageLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -400,7 +487,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                 saveState(contentItems.value)
                 clearRedoStack()
                 val items = contentItems.value.toMutableList()
-
 
                 val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
                 if (index != -1) {
@@ -417,7 +503,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                         0 -> {
                             // 光标在开头
                             newTextItem.isFocused.value = true
-//                            newTextItem.focusRequester.requestFocus()
                             items.add(index, newTextItem)
                             items.add(index + 1, ContentItem.ImageItem(uri))
 
@@ -436,7 +521,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                             items[index] = firstTextItem
                             items.add(index + 1, ContentItem.ImageItem(uri))
                             items.add(index + 2, secondTextItem)
-//                            newTextItem.focusRequester.requestFocus()
                         }
                     }
                 }
@@ -451,7 +535,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                 clearRedoStack()
                 val items = contentItems.value.toMutableList()
 
-
                 val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
                 if (index != -1) {
                     val currentItem = items[index] as ContentItem.TextItem
@@ -467,7 +550,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                         0 -> {
                             // 光标在开头
                             newTextItem.isFocused.value = true
-//                            newTextItem.focusRequester.requestFocus()
                             items.add(index, newTextItem)
                             items.add(index + 1, ContentItem.AudioItem(uri))
 
@@ -486,14 +568,11 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                             items[index] = firstTextItem
                             items.add(index + 1, ContentItem.AudioItem(uri))
                             items.add(index + 2, secondTextItem)
-//                            newTextItem.focusRequester.requestFocus()
                         }
                     }
                 }
                 contentItems.value = items
             }
-
-
         }
 
     val videoLauncher =
@@ -503,7 +582,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                 clearRedoStack()
                 val items = contentItems.value.toMutableList()
 
-
                 val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
                 if (index != -1) {
                     val currentItem = items[index] as ContentItem.TextItem
@@ -519,7 +597,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                         0 -> {
                             // 光标在开头
                             newTextItem.isFocused.value = true
-//                            newTextItem.focusRequester.requestFocus()
                             items.add(index, newTextItem)
                             items.add(index + 1, ContentItem.VideoItem(uri))
 
@@ -538,14 +615,12 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                             items[index] = firstTextItem
                             items.add(index + 1, ContentItem.VideoItem(uri))
                             items.add(index + 2, secondTextItem)
-//                            newTextItem.focusRequester.requestFocus()
                         }
                     }
                 }
                 contentItems.value = items
             }
         }
-
 
     val currentFocusIsTitle =
         contentItems.value.any { it is ContentItem.TextItem && it.isFocused.value && it.isTitle }
@@ -598,25 +673,11 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
         }
     }
 }
-//    Row(modifier = Modifier.padding(8.dp)) {
-//        Button(onClick = {
-//            // 打开图库选择图片
-//            imageLauncher.launch("image/*")
-//        }) {
-//            Text("Add Image")
-//        }
-//        Spacer(Modifier.width(8.dp))
-//        Button(onClick = {
-//            // 打开音频选择
-//            audioLauncher.launch("audio/*")
-//        }) {
-//            Text("Add Audio")
-//        }
-//    }
-
 
 @Composable
 fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<MutableList<ContentItem>>) {
+    val coroutineScope = rememberCoroutineScope()
+
     if (isDialogOpen.value) {
         AlertDialog(
             onDismissRequest = { isDialogOpen.value = false },
@@ -625,8 +686,10 @@ fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<Mut
             confirmButton = {
                 Button(onClick = {
                     isDialogOpen.value = false
-                    val content = generateSummary(contentItems)
-
+                    coroutineScope.launch {
+                        val content = generateSummary(contentItems)
+                        // 处理生成的总结内容，比如更新 UI 或存储到 ViewModel 中
+                    }
                 }) {
                     Text("生成")
                 }
@@ -639,13 +702,17 @@ fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<Mut
         )
     }
 }
+
 @Composable
 fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit) {
     if (isDialogOpen.value) {
         val searchQuery = remember { mutableStateOf("") }
         AlertDialog(
             modifier = Modifier.fillMaxWidth(),
-            onDismissRequest = { isDialogOpen.value = false },
+            onDismissRequest = {
+                isDialogOpen.value = false
+                onSearch("")
+            },
             title = { Text("搜索") },
             text = {
                 Column {
@@ -661,10 +728,6 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
                             cursorColor = Color.Black,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-//                            disabledIndicatorColor = Color.Transparent,
-//                            focusedContainerColor = Color.Transparent,
-//                            unfocusedContainerColor = Color.Transparent,
-//                            disabledContainerColor = Color.Transparent
                         )
                     )
                 }
@@ -688,90 +751,6 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
     }
 }
 
-fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): String {
-    val allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
-
-    val url = "http://183.173.162.33:8080/process_string"
-    val jsonObject = JSONObject()
-    jsonObject.put("input_string", allText)
-    val jsonString = jsonObject.toString()
-    Log.d("AI Summary", jsonString)
-
-    var returnVal = "FAIL"
-    runBlocking {
-        url.httpPost()
-            .header("Content-Type", "application/json")
-            .body(jsonString)
-            .responseString { request, response, result ->
-                when (result) {
-                    is Result.Success -> {
-                        val data = result.get()
-                        val gson = Gson()
-                        val jsonObject = gson.fromJson(data, JsonObject::class.java)
-                        val outputString = jsonObject.get("output_string").asString
-//                        Log.d("AI Summary", "success $outputString")
-                        returnVal = outputString
-                    }
-                    is Result.Failure -> {
-                        val ex = result.getException()
-//                        Log.d("AI Summary", "false $ex")
-                    }
-                }
-            }
-    }
-    return returnVal
-
-
-//    model.testInvoke(allText)
-//    var openai: OpenAI
-//    runBlocking {
-//        openai = OpenAI(
-//            "",
-//            proxy = ProxyConfig.Socks("localhost", 7890)
-//        )
-//    }
-//
-//    val chatCompletionRequest = ChatCompletionRequest(
-//        model = ModelId("gpt-3.5-turbo"),
-//        messages = listOf(
-//            ChatMessage(
-//                role = ChatRole.User,
-//                content = "我接下来将给你发送一段笔记，请你帮我对其内容进行概括。"
-//            ),
-//            ChatMessage(
-//                role = ChatRole.User,
-//                content = "好的，我将为您概括您的笔记内容。请给我您的笔记。"
-//            ),
-//            ChatMessage(
-//                role = ChatRole.User,
-//                content = allText
-//            ),
-//        )
-//    )
-//    var completion: ChatCompletion
-//    runBlocking {
-//        completion = openai.chatCompletion(chatCompletionRequest)
-//    }
-//    val text: String = completion.choices[0].message.content.toString()
-
-//    File("../data/text.txt").writeText(allText)
-
-//    val command = listOf("sh", "-c", "python /Users/qiaoshenyu/Desktop/大二下/安卓/LargeHomework/zhipu.py")
-//    val processBuilder = ProcessBuilder(command)
-//    processBuilder.redirectErrorStream(true)
-//    processBuilder.environment()["SCRIPT_CONTENT"] = allText
-//    val process = processBuilder.start()
-//
-//    val output = StringBuilder()
-//    BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
-//        var line: String?
-//        while (reader.readLine().also { line = it } != null) {
-//            output.append(line).append("\n")
-//        }
-//    }
-//    process.waitFor()
-//    allText = output.toString()
-}
 
 @Composable
 fun DisplayImageItem(
@@ -794,21 +773,22 @@ fun DisplayImageItem(
     }
 
     // 使用Box包裹原有的Column，以便于处理点击外部区域隐藏ItemOptionsBar的逻辑
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .background(color = Color.Transparent)
-        .pointerInput(Unit) {
-            detectTapGestures(
-                onPress = {
-                    // 如果ItemOptionsBar显示，尝试将其隐藏
-                    if (showOptions.value) {
-                        showOptions.value = false
-                        // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
-                        awaitRelease()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = Color.Transparent)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        // 如果ItemOptionsBar显示，尝试将其隐藏
+                        if (showOptions.value) {
+                            showOptions.value = false
+                            // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
+                            awaitRelease()
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Log.d("add1", "imaging ${contentItems.value[index]}")
@@ -840,12 +820,6 @@ fun DisplayImageItem(
                                 shape = RoundedCornerShape(16.dp)
                             )
                     ) {
-//                        TextButton(onClick = { /* Implement cut logic */ }) {
-//                            Text(text = "Cut", color = Color.White)
-//                        }
-//                        TextButton(onClick = { /* Implement cut logic */ }) {
-//                            Text(text = "Copy", color = Color.White)
-//                        }
                         TextButton(onClick = {
                             saveState(contentItems.value)
                             clearRedoStack()
@@ -870,8 +844,7 @@ fun DisplayImageItem(
                                             items[prevIndex + 1] = nextItem
                                         }
                                         items.removeAt(index)
-                                    }
-                                    else -> return@TextButton
+                                    } else -> return@TextButton
                                 }
 
                                 // 确保总是至少有一个TextItem
@@ -890,9 +863,6 @@ fun DisplayImageItem(
         }
     }
 }
-
-
-
 
 @Composable
 fun DisplayAudioItem(
@@ -916,21 +886,22 @@ fun DisplayAudioItem(
     }
 
     // 使用Box包裹原有的Column，以便于处理点击外部区域隐藏ItemOptionsBar的逻辑
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .background(color = Color.Transparent)
-        .pointerInput(Unit) {
-            detectTapGestures(
-                onPress = {
-                    // 如果ItemOptionsBar显示，尝试将其隐藏
-                    if (showOptions.value) {
-                        showOptions.value = false
-                        // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
-                        awaitRelease()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = Color.Transparent)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        // 如果ItemOptionsBar显示，尝试将其隐藏
+                        if (showOptions.value) {
+                            showOptions.value = false
+                            // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
+                            awaitRelease()
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             AudioPlayerUI(audioItem, context,
@@ -955,12 +926,6 @@ fun DisplayAudioItem(
                                 shape = RoundedCornerShape(16.dp)
                             )
                     ) {
-//                        TextButton(onClick = { /* Implement cut logic */ }) {
-//                            Text(text = "Cut", color = Color.White)
-//                        }
-//                        TextButton(onClick = { /* Implement cut logic */ }) {
-//                            Text(text = "Copy", color = Color.White)
-//                        }
                         TextButton(onClick = {
                             saveState(contentItems.value)
                             clearRedoStack()
@@ -985,8 +950,7 @@ fun DisplayAudioItem(
                                             items[prevIndex + 1] = nextItem
                                         }
                                         items.removeAt(index)
-                                    }
-                                    else -> return@TextButton
+                                    } else -> return@TextButton
                                 }
 
                                 // 确保总是至少有一个TextItem
@@ -1006,7 +970,8 @@ fun DisplayAudioItem(
     }
 }
 
-@androidx.annotation.OptIn(UnstableApi::class) @Composable
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
 fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context, modifier: Modifier) {
     val exoPlayer = remember(context) {
         ExoPlayer.Builder(context).build().apply {
@@ -1046,7 +1011,6 @@ fun AudioPlayerUI(audioItem: ContentItem.AudioItem, context: Context, modifier: 
 
     Card(
         shape = RoundedCornerShape(8.dp),
-//        elevation = 4.dp,
         modifier = modifier
     ) {
         Row(
@@ -1087,9 +1051,8 @@ fun Long.msToTime(): String {
     return String.format("%02d:%02d", minutes, seconds)
 }
 
-
-
-@androidx.annotation.OptIn(UnstableApi::class) @Composable
+@androidx.annotation.OptIn(UnstableApi::class)
+@Composable
 fun DisplayVideoItem(
     videoItem: ContentItem.VideoItem,
     context: Context,
@@ -1196,8 +1159,7 @@ fun DisplayVideoItem(
                                             items[prevIndex + 1] = nextItem
                                         }
                                         items.removeAt(index)
-                                    }
-                                    else -> return@IconButton
+                                    } else -> return@IconButton
                                 }
 
                                 // 确保总是至少有一个 TextItem
@@ -1245,8 +1207,8 @@ fun DisplayVideoItem(
                     val items = contentItems.value.toMutableList()
                     if (index in items.indices) {
                         val currentItem = items[index]
-                        val prevIndex = index - 1
-                        val nextIndex = index + 1
+                        val prevIndex = index + 1
+                        val nextIndex = index - 1
 
                         when (currentItem) {
                             is ContentItem.ImageItem, is ContentItem.AudioItem, is ContentItem.VideoItem -> {
@@ -1262,8 +1224,7 @@ fun DisplayVideoItem(
                                     items[prevIndex + 1] = nextItem
                                 }
                                 items.removeAt(index)
-                            }
-                            else -> return@IconButton
+                            } else -> return@IconButton
                         }
 
                         // 确保总是至少有一个 TextItem
@@ -1288,31 +1249,44 @@ fun DisplayVideoItem(
     }
 }
 
-
-
-
-
-
-
-
 @Composable
-fun EditTextItem(textItem: ContentItem.TextItem) {
-//    val focusRequester = remember { FocusRequester() }
-
+fun EditTextItem(
+    textItem: ContentItem.TextItem,
+    searchTerm: String,
+    matches: List<Pair<Int, Int>>,
+    currentMatchIndex: Int,
+    index: Int,
+    isEditingDisabled: Boolean,
+    onTextChange: (Int, TextFieldValue) -> Unit
+) {
+    val annotatedText = buildAnnotatedString {
+        append(textItem.text.value.text)
+        matches.filter { it.first == index }.forEachIndexed { matchIndex, range ->
+            addStyle(
+                style = SpanStyle(
+                    background = if (matchIndex == currentMatchIndex) Color.Yellow else Color.LightGray
+                ),
+                start = range.second,
+                end = range.second + searchTerm.length
+            )
+        }
+    }
     TextField(
-        value = textItem.text.value,
+        value = textItem.text.value.copy(annotatedString = annotatedText),
         onValueChange = { newValue ->
-            saveState(contentItems.value)
-            clearRedoStack()
-            textItem.text.value = newValue
+            if (!isEditingDisabled) {
+                onTextChange(index, newValue)
+            }
         },
         modifier = Modifier
             .fillMaxWidth()
             .padding(2.dp)
-//            .focusRequester(textItem.focusRequester)
             .onFocusChanged { focusState ->
                 textItem.isFocused.value = focusState.isFocused
-                Log.d("haha", "fuck")
+            }
+            .clickable {
+                // 使 TextField 获取焦点
+                textItem.isFocused.value = true
             },
         textStyle = androidx.compose.ui.text.TextStyle(
             fontSize = if (textItem.isTitle) 20.sp else 14.sp, // 标题使用更大的字体
@@ -1327,104 +1301,188 @@ fun EditTextItem(textItem: ContentItem.TextItem) {
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent
-        )
+        ),
+        enabled = !isEditingDisabled
     )
 }
 
-//@Composable
-//fun ItemOptionsBar(onCut: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit) {
-//    Row(
-//        modifier = Modifier
-//            .padding(horizontal = 40.dp)
-//            .padding(4.dp)
-////            .clip(RoundedCornerShape(8.dp))
-//            .shadow(8.dp, shape = RoundedCornerShape(8.dp), clip = true)
-//            .background(Color.White)
-//    ) {
-//        TextButton(
-//            onClick = onCut,
-//            modifier = Modifier.weight(1f)
-//        ) {
-//            Text("Cut")
-//        }
-//        TextButton(
-//            onClick = onCopy,
-//            modifier = Modifier.weight(1f)
-//        ) {
-//            Text("Copy")
-//        }
-//        TextButton(
-//            onClick = onDelete,
-//            modifier = Modifier.weight(1f)
-//        ) {
-//            Text("Delete")
-//        }
-//    }
-//}
-//fun focusOnNearestTextItem(contentItems: MutableState<MutableList<ContentItem>>, index: Int) {
-//    val items = contentItems.value
-//    (items.getOrNull(index - 1) ?: items.getOrNull(index))?.let { item ->
-//        if (item is ContentItem.TextItem) {
-////            item.focusRequester.requestFocus()
-//        }
-//    }
-//}
-
-//@Composable
-//fun ImageViewer(imageUri: Uri, onDismiss: () -> Unit) {
-//    var scale by remember { mutableStateOf(1f) }
-//    var offsetX by remember { mutableStateOf(0f) }
-//    var offsetY by remember { mutableStateOf(0f) }
-//
-//    Box(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .background(Color.Black)
-//            .pointerInput(Unit) {
-//                detectTransformGestures { _, pan, zoom, _ ->
-//                    scale *= zoom
-//                    offsetX += pan.x
-//                    offsetY += pan.y
-//                }
-//            }
-//    ) {
-//        Image(
-//            painter = rememberAsyncImagePainter(imageUri),
-//            contentDescription = null,
-//            contentScale = ContentScale.Fit,
-//            modifier = Modifier
-//                .graphicsLayer(
-//                    scaleX = maxOf(1f, minOf(3f, scale)),
-//                    scaleY = maxOf(1f, minOf(3f, scale)),
-//                    translationX = offsetX,
-//                    translationY = offsetY
-//                )
-//                .fillMaxSize()
-//        )
-//        IconButton(
-//            onClick = onDismiss,
-//            modifier = Modifier.align(Alignment.TopEnd)
-//        ) {
-//            Icon(painter = rememberAsyncImagePainter(R.drawable.baseline_close_24), contentDescription = "Close", tint = Color.White)
-//        }
-//    }
-//}
 
 
 
-//@Preview
-//@Composable
-//fun PreviewDisplayImageItem() {
-//    val imageUri = remember { Uri.parse(R.drawable.avatar.toString()) } // Replace URI with your image URI
-//    val imageItem = remember { ContentItem.ImageItem(imageUri) }
-//    val sampleTextItem = remember {
-//        ContentItem.TextItem(mutableStateOf(TextFieldValue("Sample")))
-//    }
-//
-//    val contentItems = remember { mutableStateOf(mutableListOf<ContentItem>(
-//        sampleTextItem
-//    )) }
-//
-//    // Preview the DisplayImageItem
-//    DisplayImageItem(imageItem = imageItem, contentItems = contentItems, index = 0)
-//}
+
+@Composable
+fun AISummaryDialog(aiSummary: MutableState<String>) {
+    if (aiSummary.value.isNotEmpty()) {
+        val clipboardManager = LocalClipboardManager.current
+
+        AlertDialog(
+            onDismissRequest = { aiSummary.value = "" },
+            title = { Text("AI总结") },
+            text = { Text(aiSummary.value) },
+            confirmButton = {
+                Button(onClick = { aiSummary.value = "" }) {
+                    Text("关闭")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    val clip = ClipData.newPlainText("AI Summary", aiSummary.value)
+                    clipboardManager.setText(AnnotatedString(aiSummary.value))
+                }) {
+                    Text("复制")
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LoadingDialog(isLoading: MutableState<Boolean>) {
+    if (isLoading.value) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("生成中...") },
+            text = { Text("正在使用AI生成总结，请稍候...") },
+            confirmButton = {}
+        )
+    }
+}
+
+@Composable
+fun AIDialog(
+    isDialogOpen: MutableState<Boolean>,
+    contentItems: MutableState<MutableList<ContentItem>>,
+    isLoading: MutableState<Boolean>,
+    aiSummary: MutableState<String>
+) {
+    val coroutineScope = rememberCoroutineScope()
+
+    if (isDialogOpen.value) {
+        AlertDialog(
+            onDismissRequest = { isDialogOpen.value = false },
+            title = { Text("AI总结") },
+            text = { Text("使用AI为这篇笔记的文字部分生成总结") },
+            confirmButton = {
+                Button(onClick = {
+                    isDialogOpen.value = false
+                    isLoading.value = true
+                    coroutineScope.launch {
+                        val content = generateSummary(contentItems)
+                        isLoading.value = false
+                        aiSummary.value = content
+                    }
+                }) {
+                    Text("生成")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { isDialogOpen.value = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
+suspend fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): String {
+    val allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+
+    val url = "http://51.13.55.234:8080/process_string"
+    val jsonObject = JSONObject()
+    jsonObject.put("input_string", allText)
+    val jsonString = jsonObject.toString()
+    Log.d("AI Summary", jsonString)
+
+    var returnVal = "FAIL"
+    withContext(Dispatchers.IO) {
+        try {
+            val (request, response, result) = url.httpPost()
+                .header("Content-Type", "application/json")
+                .body(jsonString)
+                .responseString()
+
+            when (result) {
+                is Result.Success -> {
+                    val data = result.get()
+                    val gson = Gson()
+                    val jsonObject = gson.fromJson(data, JsonObject::class.java)
+                    val outputString = jsonObject.get("output_string").asString
+                    Log.d("AI Summary", "success $outputString")
+                    returnVal = outputString
+                }
+                is Result.Failure -> {
+                    val ex = result.getException()
+                    Log.d("AI Summary", "false $ex")
+                }
+            }
+        } catch (e: Exception) {
+            Log.d("AI Summary", "Exception: ${e.message}")
+        }
+    }
+    return returnVal
+}
+
+fun searchAndHighlight(contentItems: MutableState<MutableList<ContentItem>>, searchTerm: String): List<Pair<Int, Int>> {
+    val matches = mutableListOf<Pair<Int, Int>>()
+    contentItems.value.forEachIndexed { index, contentItem ->
+        if (contentItem is ContentItem.TextItem) {
+            val regex = Regex(searchTerm, RegexOption.IGNORE_CASE)
+            regex.findAll(contentItem.text.value.text).forEach { matchResult ->
+                matches.add(Pair(index, matchResult.range.first))
+            }
+        }
+    }
+    return matches
+}
+
+@Composable
+fun SearchNavigation(
+    searchTerm: MutableState<String>,
+    matches: MutableState<List<Pair<Int, Int>>>,
+    currentMatchIndex: MutableState<Int>,
+    contentItems: MutableState<MutableList<ContentItem>>
+) {
+    if (searchTerm.value.isNotEmpty() && matches.value.isNotEmpty()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(text = "${currentMatchIndex.value + 1}/${matches.value.size}")
+            Spacer(modifier = Modifier.width(16.dp))
+            IconButton(onClick = {
+                if (currentMatchIndex.value > 0) {
+                    currentMatchIndex.value -= 1
+                    focusOnMatch(matches.value[currentMatchIndex.value], contentItems)
+                }
+            }) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Previous Match"
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(onClick = {
+                if (currentMatchIndex.value < matches.value.size - 1) {
+                    currentMatchIndex.value += 1
+                    focusOnMatch(matches.value[currentMatchIndex.value], contentItems)
+                }
+            }) {
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "Next Match"
+                )
+            }
+        }
+    }
+}
+
+fun focusOnMatch(match: Pair<Int, Int>, contentItems: MutableState<MutableList<ContentItem>>) {
+    val (index, position) = match
+    val contentItem = contentItems.value[index]
+    if (contentItem is ContentItem.TextItem) {
+        contentItem.text.value = contentItem.text.value.copy(selection = TextRange(position, position + 1))
+    }
+}

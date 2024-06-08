@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
+import com.example.simplenote.data.NoteType
 import com.example.simplenote.ui.note.DirectoryDetails
 import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
@@ -407,12 +408,25 @@ fun MainScreen(
             localNotebookUiState.notebookList.reversed().forEachIndexed() { idx, notebookDetails ->
                 val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
                 val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
-                val noteSecond = notebookViewModel.getSecondNote(notebookDetails.id)
+                var noteFirstText = ""
+                if (noteFirst?.type == NoteType.Text) {
+                    noteFirstText = noteFirst.content
+                } else if (noteFirst?.type == NoteType.Photo) {
+                    noteFirstText = "图片"
+                } else if (noteFirst?.type == NoteType.Audio) {
+                    noteFirstText = "音频"
+                } else if (noteFirst?.type == NoteType.Video) {
+                    noteFirstText = "视频"
+                }
+                val lastEditedTime =
+                    notebookDetails.changeTime // Assuming you have a field for last edited time
+
+
                 item {
                     CustomListItem(
                         text = noteTitle?.content ?: "",
-                        subText1 = noteFirst?.content ?: "",
-                        subText2 = noteSecond?.content ?: "",
+                        subText1 = noteFirstText,
+                        subText2 = lastEditedTime, // Convert last edited time to a suitable string format
                         isSelecting = isSelecting,
                         isSelected = selectedItems.contains(localNotebookUiState.notebookList.size - 1 - idx),
                         onSelect = { handleItemSelect(localNotebookUiState.notebookList.size - 1 - idx) },
