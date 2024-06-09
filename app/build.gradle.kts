@@ -78,10 +78,11 @@ dependencies {
     implementation(libs.androidx.room.common)
     ksp("androidx.room:room-compiler:${rootProject.extra["room_version"]}")
     implementation(libs.androidx.room.ktx)
-
     implementation("com.github.kittinunf.fuel:fuel:2.3.1")
     implementation("com.google.code.gson:gson:2.8.6")
     implementation("org.json:json:20210307")
     implementation("cn.bigmodel.openapi:oapi-java-sdk:release-V4-2.0.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+
 
 }
