@@ -751,6 +751,91 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
     }
 }
 
+fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): String {
+    val allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
+
+    val url = "http:/192.168.249.1:8080/process_string"
+    val jsonObject = JSONObject()
+    jsonObject.put("input_string", allText)
+    val jsonString = jsonObject.toString()
+    Log.d("AI Summary", jsonString)
+
+    var returnVal = "FAIL"
+    runBlocking {
+        url.httpPost()
+            .header("Content-Type", "application/json")
+            .body(jsonString)
+            .responseString { request, response, result ->
+                when (result) {
+                    is Result.Success -> {
+                        val data = result.get()
+                        val gson = Gson()
+                        val jsonObject = gson.fromJson(data, JsonObject::class.java)
+                        val outputString = jsonObject.get("output_string").asString
+                        Log.d("AI Summary", "success $outputString")
+                        returnVal = outputString
+                    }
+                    is Result.Failure -> {
+                        val ex = result.getException()
+                        Log.d("AI Summary", "false $ex")
+                    }
+                }
+            }
+    }
+    return returnVal
+
+
+//    model.testInvoke(allText)
+//    var openai: OpenAI
+//    runBlocking {
+//        openai = OpenAI(
+//            "",
+//            proxy = ProxyConfig.Socks("localhost", 7890)
+//        )
+//    }
+//
+//    val chatCompletionRequest = ChatCompletionRequest(
+//        model = ModelId("gpt-3.5-turbo"),
+//        messages = listOf(
+//            ChatMessage(
+//                role = ChatRole.User,
+//                content = "我接下来将给你发送一段笔记，请你帮我对其内容进行概括。"
+//            ),
+//            ChatMessage(
+//                role = ChatRole.User,
+//                content = "好的，我将为您概括您的笔记内容。请给我您的笔记。"
+//            ),
+//            ChatMessage(
+//                role = ChatRole.User,
+//                content = allText
+//            ),
+//        )
+//    )
+//    var completion: ChatCompletion
+//    runBlocking {
+//        completion = openai.chatCompletion(chatCompletionRequest)
+//    }
+//    val text: String = completion.choices[0].message.content.toString()
+
+//    File("../data/text.txt").writeText(allText)
+
+//    val command = listOf("sh", "-c", "python /Users/qiaoshenyu/Desktop/大二下/安卓/LargeHomework/zhipu.py")
+//    val processBuilder = ProcessBuilder(command)
+//    processBuilder.redirectErrorStream(true)
+//    processBuilder.environment()["SCRIPT_CONTENT"] = allText
+//    val process = processBuilder.start()
+//
+//    val output = StringBuilder()
+//    BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+//        var line: String?
+//        while (reader.readLine().also { line = it } != null) {
+//            output.append(line).append("\n")
+//        }
+//    }
+//    process.waitFor()
+//    allText = output.toString()
+}
+
 
 @Composable
 fun DisplayImageItem(

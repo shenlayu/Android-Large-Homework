@@ -141,6 +141,13 @@ class DirectoryViewModel(
             println("changeDirectoryName ERROR: No user found")
         }
     }
+    fun getDirectory(directoryID: Int): DirectoryDetails? {
+        var directoryDetails: DirectoryDetails?
+        runBlocking {
+            directoryDetails = directoriesRepository.getDirectory(directoryID).firstOrNull()?.toDirectoryDetails()
+        }
+        return directoryDetails
+    }
 
 //    fun Updatetext(text: String) {
 //        _uiState.value = _uiState.value.copy(SavedText = text)
