@@ -51,6 +51,7 @@ fun NoteNavHost(
         composable(route = pages.Main.name) {
             MainScreen(
 //                directoryViewModel = directoryViewModel,
+                userViewModel = userViewModel,
                 notebookViewModel = notebookViewModel,
                 noteViewModel = noteViewModel,
                 navigateToEdit = { navController.navigate(pages.Edit.name) },

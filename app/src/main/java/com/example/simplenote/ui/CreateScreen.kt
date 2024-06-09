@@ -248,7 +248,6 @@ fun EditorScreen(
         ?.let { notebook -> directoryViewModel.getDirectory(notebook.directoryId)?.name }
         ?: ""
 
-
     val searchTerm = remember { mutableStateOf("") }
     val matches = remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
     val currentMatchIndex = remember { mutableStateOf(0) }
@@ -257,10 +256,14 @@ fun EditorScreen(
         topBar = {
             EditorTopBar(
                 onBack = navigateToMain,
-                onUndo = { undo(contentItems = contentItems)
-                    matches.value = searchAndHighlight(contentItems, searchTerm.value)},
-                onRedo = { redo(contentItems = contentItems)
-                    matches.value = searchAndHighlight(contentItems, searchTerm.value)},
+                onUndo = {
+                    undo(contentItems = contentItems)
+                    matches.value = searchAndHighlight(contentItems, searchTerm.value)
+                },
+                onRedo = {
+                    redo(contentItems = contentItems)
+                    matches.value = searchAndHighlight(contentItems, searchTerm.value)
+                },
                 onSearch = {
                     isSearchDialogOpen.value = true
                 },
@@ -276,27 +279,27 @@ fun EditorScreen(
             ControlPanel(contentItems, LocalContext.current, onAIClick = { isAIDialogOpen.value = true })
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues)) {
-            InfoBar(currentDate, totalCharacters, directoryName)
-            Divider(color = Color.LightGray, thickness = 1.dp)
-            LazyColumn {
-                itemsIndexed(contentItems.value) { index, item ->
-                    when (item) {
-                        is ContentItem.TextItem -> EditTextItem(
-                            textItem = item,
-                            searchTerm = searchTerm.value,
-                            matches = matches.value,
-                            currentMatchIndex = currentMatchIndex.value,
-                            index = index,
-                            onTextChange = { idx, newValue ->
-
-                                matches.value = searchAndHighlight(contentItems, searchTerm.value)
-
-                            }
-                        )
-                        is ContentItem.ImageItem -> DisplayImageItem(item, contentItems, index)
-                        is ContentItem.AudioItem -> DisplayAudioItem(item, LocalContext.current, contentItems, index)
-                        is ContentItem.VideoItem -> DisplayVideoItem(item, LocalContext.current, contentItems, index)
+        Box(modifier = Modifier.padding(paddingValues)) {
+            Column {
+                InfoBar(currentDate, totalCharacters, directoryName)
+                Divider(color = Color.LightGray, thickness = 1.dp)
+                LazyColumn {
+                    itemsIndexed(contentItems.value) { index, item ->
+                        when (item) {
+                            is ContentItem.TextItem -> EditTextItem(
+                                textItem = item,
+                                searchTerm = searchTerm.value,
+                                matches = matches.value,
+                                currentMatchIndex = currentMatchIndex.value,
+                                index = index,
+                                onTextChange = { idx, newValue ->
+                                    matches.value = searchAndHighlight(contentItems, searchTerm.value)
+                                }
+                            )
+                            is ContentItem.ImageItem -> DisplayImageItem(item, contentItems, index)
+                            is ContentItem.AudioItem -> DisplayAudioItem(item, LocalContext.current, contentItems, index)
+                            is ContentItem.VideoItem -> DisplayVideoItem(item, LocalContext.current, contentItems, index)
+                        }
                     }
                 }
             }
@@ -304,7 +307,8 @@ fun EditorScreen(
                 searchTerm = searchTerm,
                 matches = matches,
                 currentMatchIndex = currentMatchIndex,
-                contentItems = contentItems
+                contentItems = contentItems,
+                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
     }
@@ -487,141 +491,132 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
     val imageLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
-                saveState(contentItems.value)
-                clearRedoStack()
-                val items = contentItems.value.toMutableList()
+                val newUri = copyUriToInternalStorage(context, uri, "copied_image_${System.currentTimeMillis()}.jpg")
+                newUri?.let {
+                    saveState(contentItems.value)
+                    clearRedoStack()
+                    val items = contentItems.value.toMutableList()
 
-                val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
-                if (index != -1) {
-                    val currentItem = items[index] as ContentItem.TextItem
-                    val cursorPosition = currentItem.text.value.selection.start
-                    val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
-                    when (cursorPosition) {
-                        currentItem.text.value.text.length -> {
-                            // 光标在末尾
-                            items.add(index + 1, ContentItem.ImageItem(uri))
-                            items.add(index + 2, newTextItem)
-                        }
-
-                        0 -> {
-                            // 光标在开头
-                            newTextItem.isFocused.value = true
-                            items.add(index, newTextItem)
-                            items.add(index + 1, ContentItem.ImageItem(uri))
-
-                        }
-
-                        else -> {
-                            // 光标在中间
-                            val textBefore =
-                                currentItem.text.value.text.substring(0, cursorPosition)
-                            val textAfter = currentItem.text.value.text.substring(cursorPosition)
-                            val firstTextItem =
-                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
-                            firstTextItem.isFocused.value = true
-                            val secondTextItem =
-                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
-                            items[index] = firstTextItem
-                            items.add(index + 1, ContentItem.ImageItem(uri))
-                            items.add(index + 2, secondTextItem)
+                    val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                    if (index != -1) {
+                        val currentItem = items[index] as ContentItem.TextItem
+                        val cursorPosition = currentItem.text.value.selection.start
+                        val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                        when (cursorPosition) {
+                            currentItem.text.value.text.length -> {
+                                // 光标在末尾
+                                items.add(index + 1, ContentItem.ImageItem(it))
+                                items.add(index + 2, newTextItem)
+                            }
+                            0 -> {
+                                // 光标在开头
+                                newTextItem.isFocused.value = true
+                                items.add(index, newTextItem)
+                                items.add(index + 1, ContentItem.ImageItem(it))
+                            }
+                            else -> {
+                                // 光标在中间
+                                val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
+                                val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                                val firstTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                                firstTextItem.isFocused.value = true
+                                val secondTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                                items[index] = firstTextItem
+                                items.add(index + 1, ContentItem.ImageItem(it))
+                                items.add(index + 2, secondTextItem)
+                            }
                         }
                     }
+                    contentItems.value = items
                 }
-                contentItems.value = items
             }
         }
 
     val audioLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
-                saveState(contentItems.value)
-                clearRedoStack()
-                val items = contentItems.value.toMutableList()
+                val newUri = copyUriToInternalStorage(context, uri, "copied_audio_${System.currentTimeMillis()}.mp3")
+                newUri?.let {
+                    saveState(contentItems.value)
+                    clearRedoStack()
+                    val items = contentItems.value.toMutableList()
 
-                val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
-                if (index != -1) {
-                    val currentItem = items[index] as ContentItem.TextItem
-                    val cursorPosition = currentItem.text.value.selection.start
-                    val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
-                    when (cursorPosition) {
-                        currentItem.text.value.text.length -> {
-                            // 光标在末尾
-                            items.add(index + 1, ContentItem.AudioItem(uri))
-                            items.add(index + 2, newTextItem)
-                        }
-
-                        0 -> {
-                            // 光标在开头
-                            newTextItem.isFocused.value = true
-                            items.add(index, newTextItem)
-                            items.add(index + 1, ContentItem.AudioItem(uri))
-
-                        }
-
-                        else -> {
-                            // 光标在中间
-                            val textBefore =
-                                currentItem.text.value.text.substring(0, cursorPosition)
-                            val textAfter = currentItem.text.value.text.substring(cursorPosition)
-                            val firstTextItem =
-                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
-                            firstTextItem.isFocused.value = true
-                            val secondTextItem =
-                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
-                            items[index] = firstTextItem
-                            items.add(index + 1, ContentItem.AudioItem(uri))
-                            items.add(index + 2, secondTextItem)
+                    val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                    if (index != -1) {
+                        val currentItem = items[index] as ContentItem.TextItem
+                        val cursorPosition = currentItem.text.value.selection.start
+                        val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                        when (cursorPosition) {
+                            currentItem.text.value.text.length -> {
+                                // 光标在末尾
+                                items.add(index + 1, ContentItem.AudioItem(it))
+                                items.add(index + 2, newTextItem)
+                            }
+                            0 -> {
+                                // 光标在开头
+                                newTextItem.isFocused.value = true
+                                items.add(index, newTextItem)
+                                items.add(index + 1, ContentItem.AudioItem(it))
+                            }
+                            else -> {
+                                // 光标在中间
+                                val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
+                                val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                                val firstTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                                firstTextItem.isFocused.value = true
+                                val secondTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                                items[index] = firstTextItem
+                                items.add(index + 1, ContentItem.AudioItem(it))
+                                items.add(index + 2, secondTextItem)
+                            }
                         }
                     }
+                    contentItems.value = items
                 }
-                contentItems.value = items
             }
         }
 
     val videoLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let { uri ->
-                saveState(contentItems.value)
-                clearRedoStack()
-                val items = contentItems.value.toMutableList()
+                val newUri = copyUriToInternalStorage(context, uri, "copied_video_${System.currentTimeMillis()}.mp4")
+                newUri?.let {
+                    saveState(contentItems.value)
+                    clearRedoStack()
+                    val items = contentItems.value.toMutableList()
 
-                val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
-                if (index != -1) {
-                    val currentItem = items[index] as ContentItem.TextItem
-                    val cursorPosition = currentItem.text.value.selection.start
-                    val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
-                    when (cursorPosition) {
-                        currentItem.text.value.text.length -> {
-                            // 光标在末尾
-                            items.add(index + 1, ContentItem.VideoItem(uri))
-                            items.add(index + 2, newTextItem)
-                        }
-
-                        0 -> {
-                            // 光标在开头
-                            newTextItem.isFocused.value = true
-                            items.add(index, newTextItem)
-                            items.add(index + 1, ContentItem.VideoItem(uri))
-
-                        }
-
-                        else -> {
-                            // 光标在中间
-                            val textBefore =
-                                currentItem.text.value.text.substring(0, cursorPosition)
-                            val textAfter = currentItem.text.value.text.substring(cursorPosition)
-                            val firstTextItem =
-                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
-                            firstTextItem.isFocused.value = true
-                            val secondTextItem =
-                                ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
-                            items[index] = firstTextItem
-                            items.add(index + 1, ContentItem.VideoItem(uri))
-                            items.add(index + 2, secondTextItem)
+                    val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                    if (index != -1) {
+                        val currentItem = items[index] as ContentItem.TextItem
+                        val cursorPosition = currentItem.text.value.selection.start
+                        val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                        when (cursorPosition) {
+                            currentItem.text.value.text.length -> {
+                                // 光标在末尾
+                                items.add(index + 1, ContentItem.VideoItem(it))
+                                items.add(index + 2, newTextItem)
+                            }
+                            0 -> {
+                                // 光标在开头
+                                newTextItem.isFocused.value = true
+                                items.add(index, newTextItem)
+                                items.add(index + 1, ContentItem.VideoItem(it))
+                            }
+                            else -> {
+                                // 光标在中间
+                                val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
+                                val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                                val firstTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                                firstTextItem.isFocused.value = true
+                                val secondTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                                items[index] = firstTextItem
+                                items.add(index + 1, ContentItem.VideoItem(it))
+                                items.add(index + 2, secondTextItem)
+                            }
                         }
                     }
+                    contentItems.value = items
                 }
-                contentItems.value = items
             }
         }
 
@@ -664,7 +659,7 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
         }
 
         Spacer(Modifier.weight(1f, true))
-        // Audio Button
+        // Video Button
         IconButton(
             onClick = { if (!currentFocusIsTitle) videoLauncher.launch("video/*") },
             enabled = !currentFocusIsTitle
@@ -674,35 +669,6 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                 contentDescription = "Add Video"
             )
         }
-    }
-}
-
-@Composable
-fun AIDialog(isDialogOpen: MutableState<Boolean>, contentItems: MutableState<MutableList<ContentItem>>) {
-    val coroutineScope = rememberCoroutineScope()
-
-    if (isDialogOpen.value) {
-        AlertDialog(
-            onDismissRequest = { isDialogOpen.value = false },
-            title = { Text("AI总结") },
-            text = { Text("使用AI为这篇笔记的文字部分生成总结") },
-            confirmButton = {
-                Button(onClick = {
-                    isDialogOpen.value = false
-                    coroutineScope.launch {
-                        val content = generateSummary(contentItems)
-                        // 处理生成的总结内容，比如更新 UI 或存储到 ViewModel 中
-                    }
-                }) {
-                    Text("生成")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { isDialogOpen.value = false }) {
-                    Text("取消")
-                }
-            }
-        )
     }
 }
 
@@ -752,91 +718,6 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
             }
         )
     }
-}
-
-fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): String {
-    val allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
-
-    val url = "http:/192.168.249.1:8080/process_string"
-    val jsonObject = JSONObject()
-    jsonObject.put("input_string", allText)
-    val jsonString = jsonObject.toString()
-    Log.d("AI Summary", jsonString)
-
-    var returnVal = "FAIL"
-    runBlocking {
-        url.httpPost()
-            .header("Content-Type", "application/json")
-            .body(jsonString)
-            .responseString { request, response, result ->
-                when (result) {
-                    is Result.Success -> {
-                        val data = result.get()
-                        val gson = Gson()
-                        val jsonObject = gson.fromJson(data, JsonObject::class.java)
-                        val outputString = jsonObject.get("output_string").asString
-                        Log.d("AI Summary", "success $outputString")
-                        returnVal = outputString
-                    }
-                    is Result.Failure -> {
-                        val ex = result.getException()
-                        Log.d("AI Summary", "false $ex")
-                    }
-                }
-            }
-    }
-    return returnVal
-
-
-//    model.testInvoke(allText)
-//    var openai: OpenAI
-//    runBlocking {
-//        openai = OpenAI(
-//            "",
-//            proxy = ProxyConfig.Socks("localhost", 7890)
-//        )
-//    }
-//
-//    val chatCompletionRequest = ChatCompletionRequest(
-//        model = ModelId("gpt-3.5-turbo"),
-//        messages = listOf(
-//            ChatMessage(
-//                role = ChatRole.User,
-//                content = "我接下来将给你发送一段笔记，请你帮我对其内容进行概括。"
-//            ),
-//            ChatMessage(
-//                role = ChatRole.User,
-//                content = "好的，我将为您概括您的笔记内容。请给我您的笔记。"
-//            ),
-//            ChatMessage(
-//                role = ChatRole.User,
-//                content = allText
-//            ),
-//        )
-//    )
-//    var completion: ChatCompletion
-//    runBlocking {
-//        completion = openai.chatCompletion(chatCompletionRequest)
-//    }
-//    val text: String = completion.choices[0].message.content.toString()
-
-//    File("../data/text.txt").writeText(allText)
-
-//    val command = listOf("sh", "-c", "python /Users/qiaoshenyu/Desktop/大二下/安卓/LargeHomework/zhipu.py")
-//    val processBuilder = ProcessBuilder(command)
-//    processBuilder.redirectErrorStream(true)
-//    processBuilder.environment()["SCRIPT_CONTENT"] = allText
-//    val process = processBuilder.start()
-//
-//    val output = StringBuilder()
-//    BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
-//        var line: String?
-//        while (reader.readLine().also { line = it } != null) {
-//            output.append(line).append("\n")
-//        }
-//    }
-//    process.waitFor()
-//    allText = output.toString()
 }
 
 
@@ -952,6 +833,7 @@ fun DisplayImageItem(
     }
 }
 
+
 @Composable
 fun DisplayAudioItem(
     audioItem: ContentItem.AudioItem,
@@ -1057,6 +939,7 @@ fun DisplayAudioItem(
         }
     }
 }
+
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -1337,65 +1220,6 @@ fun DisplayVideoItem(
     }
 }
 
-@Composable
-fun EditTextItem(
-    textItem: ContentItem.TextItem,
-    searchTerm: String,
-    matches: List<Pair<Int, Int>>,
-    currentMatchIndex: Int,
-    index: Int,
-    isEditingDisabled: Boolean,
-    onTextChange: (Int, TextFieldValue) -> Unit
-) {
-    val annotatedText = buildAnnotatedString {
-        append(textItem.text.value.text)
-        matches.filter { it.first == index }.forEachIndexed { matchIndex, range ->
-            addStyle(
-                style = SpanStyle(
-                    background = if (matchIndex == currentMatchIndex) Color.Yellow else Color.LightGray
-                ),
-                start = range.second,
-                end = range.second + searchTerm.length
-            )
-        }
-    }
-    TextField(
-        value = textItem.text.value.copy(annotatedString = annotatedText),
-        onValueChange = { newValue ->
-            if (!isEditingDisabled) {
-                onTextChange(index, newValue)
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(2.dp)
-            .onFocusChanged { focusState ->
-                textItem.isFocused.value = focusState.isFocused
-            }
-            .clickable {
-                // 使 TextField 获取焦点
-                textItem.isFocused.value = true
-            },
-        textStyle = androidx.compose.ui.text.TextStyle(
-            fontSize = if (textItem.isTitle) 20.sp else 14.sp, // 标题使用更大的字体
-            color = Color.Black
-        ),
-        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-        colors = TextFieldDefaults.colors(
-            cursorColor = Color.Black,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent
-        ),
-        enabled = !isEditingDisabled
-    )
-}
-
-
-
 
 
 @Composable
@@ -1529,39 +1353,45 @@ fun SearchNavigation(
     searchTerm: MutableState<String>,
     matches: MutableState<List<Pair<Int, Int>>>,
     currentMatchIndex: MutableState<Int>,
-    contentItems: MutableState<MutableList<ContentItem>>
+    contentItems: MutableState<MutableList<ContentItem>>,
+    modifier: Modifier = Modifier
 ) {
     if (searchTerm.value.isNotEmpty() && matches.value.isNotEmpty()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.Center
+        Box(
+            modifier = modifier
+                .padding(16.dp)
+                .background(Color.LightGray.copy(alpha = 0.9f), shape = RoundedCornerShape(16.dp))
+                .padding(8.dp)
         ) {
-            Text(text = "${currentMatchIndex.value + 1}/${matches.value.size}")
-            Spacer(modifier = Modifier.width(16.dp))
-            IconButton(onClick = {
-                if (currentMatchIndex.value > 0) {
-                    currentMatchIndex.value -= 1
-                    focusOnMatch(matches.value[currentMatchIndex.value], contentItems)
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "${currentMatchIndex.value + 1}/${matches.value.size}")
+                Spacer(modifier = Modifier.width(16.dp))
+                IconButton(onClick = {
+                    if (currentMatchIndex.value > 0) {
+                        currentMatchIndex.value -= 1
+                        focusOnMatch(matches.value[currentMatchIndex.value], contentItems)
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Previous Match"
+                    )
                 }
-            }) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Previous Match"
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(onClick = {
-                if (currentMatchIndex.value < matches.value.size - 1) {
-                    currentMatchIndex.value += 1
-                    focusOnMatch(matches.value[currentMatchIndex.value], contentItems)
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = {
+                    if (currentMatchIndex.value < matches.value.size - 1) {
+                        currentMatchIndex.value += 1
+                        focusOnMatch(matches.value[currentMatchIndex.value], contentItems)
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Next Match"
+                    )
                 }
-            }) {
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = "Next Match"
-                )
             }
         }
     }
@@ -1574,3 +1404,6 @@ fun focusOnMatch(match: Pair<Int, Int>, contentItems: MutableState<MutableList<C
         contentItem.text.value = contentItem.text.value.copy(selection = TextRange(position, position + 1))
     }
 }
+
+
+

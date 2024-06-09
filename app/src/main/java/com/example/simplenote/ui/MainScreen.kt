@@ -1,5 +1,6 @@
 package com.example.simplenote.ui
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -64,6 +65,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -98,6 +100,7 @@ fun MainScreen(
     val id = rememberSaveable { mutableIntStateOf(0) }
     val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
     val localNotebookUiState by notebookViewModel.uiState.collectAsState()
+    val localUserUiScale by userViewModel.uiState.collectAsState()
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showSortMenu by remember { mutableStateOf(false) }
@@ -221,14 +224,20 @@ fun MainScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = navigateToMe, modifier = Modifier.padding(start = 8.dp)) {
+                            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)
                             Image(
-                                painter = rememberAsyncImagePainter(R.drawable.avatar),
+                                painter = if (avatar == "default") {
+                                    painterResource(id = R.drawable.avatar)
+                                } else {
+                                    rememberAsyncImagePainter(model = Uri.parse(avatar))
+                                },
                                 contentDescription = "Avatar",
                                 modifier = Modifier.size(48.dp),
                                 contentScale = ContentScale.Crop,
                             )
                         }
                     },
+
                     actions = {
                         IconButton(onClick = { showSortMenu = !showSortMenu }) {
                             Icon(

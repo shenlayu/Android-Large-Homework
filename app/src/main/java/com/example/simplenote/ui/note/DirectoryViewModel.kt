@@ -140,13 +140,6 @@ class DirectoryViewModel(
             println("changeDirectoryName ERROR: No user found")
         }
     }
-    fun getDirectory(directoryID: Int): DirectoryDetails? {
-        var directoryDetails: DirectoryDetails?
-        runBlocking {
-            directoryDetails = directoriesRepository.getDirectory(directoryID).firstOrNull()?.toDirectoryDetails()
-        }
-        return directoryDetails
-    }
 
     fun getDirectory(directoryID: Int): DirectoryDetails? {
         var directory: DirectoryDetails?
