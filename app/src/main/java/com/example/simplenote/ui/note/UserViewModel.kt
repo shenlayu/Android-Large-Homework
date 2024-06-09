@@ -50,7 +50,7 @@ class UserViewModel(
             directoryRepository.insertDirectory(directoryDetails.toDirectory())
             // 默认设置一个头像，在显示图片的时候判断一下是不是default
             setAvatar(username, "default")
-            setNickname(username, "昵称")
+            setNickname(username, "未设置昵称")
         }
     }
     fun deleteUser(username: String) {

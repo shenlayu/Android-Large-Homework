@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -75,6 +76,7 @@ import com.example.simplenote.data.NoteType
 import com.example.simplenote.ui.note.DirectoryDetails
 import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteViewModel
+import com.example.simplenote.ui.note.NotebookDetails
 import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.SortType
 import com.example.simplenote.ui.note.UserViewModel
@@ -93,15 +95,13 @@ fun MainScreen(
     navigateToMe: () -> Unit = {},
     navigateToMain: () -> Unit = {}
 ) {
-    val id = rememberSaveable {
-        mutableIntStateOf(0)
-    }
+    val id = rememberSaveable { mutableIntStateOf(0) }
     val localDirectoryUiState by directoryViewModel.uiState.collectAsState()
     val localNotebookUiState by notebookViewModel.uiState.collectAsState()
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showSortMenu by remember { mutableStateOf(false) }
-    var showBottomSheet by remember { mutableStateOf(false) } // 用于控制底部动作条的状态
+    var showBottomSheet by remember { mutableStateOf(false) }
     var showMoveMenu by remember { mutableStateOf(false) }
     val (selectedTab, setSelectedTab) = rememberSaveable { mutableStateOf(0) }
     var isSelecting by rememberSaveable { mutableStateOf(false) }
@@ -110,6 +110,11 @@ fun MainScreen(
     val isSearchDialogOpen = remember { mutableStateOf(false) }
     var isCreatingDirectory by remember { mutableStateOf(false) }
     val isFirstLaunch = rememberSaveable { mutableStateOf(true) }
+
+    val searchResults = remember { mutableStateOf<List<NotebookDetails>>(emptyList()) }
+    val searchTerm = remember { mutableStateOf("") }
+    val isSearchResultScreen = remember { mutableStateOf(false) }
+
 
     if(localDirectoryUiState.directoryList.isNotEmpty()) {
         if(isFirstLaunch.value) {
@@ -143,18 +148,31 @@ fun MainScreen(
         handleItemSelect(index)
     }
 
-    fun moveNotebooksToDirectory() {
-        moveToDirectoryId?.let { targetDirectoryId ->
-            selectedItems.forEach { notebookIndex ->
-                val notebook = localNotebookUiState.notebookList[notebookIndex]
-                //todo: 完成移动的操作
-//                notebookViewModel.moveNotebook(notebook.id, targetDirectoryId)
-
-            }
-            clearSelection()
+    fun performSearch(query: String) {
+        val results = localNotebookUiState.notebookList.filter { notebook ->
+            val notes = notebookViewModel.getAllTextNotes(notebook.id)
+            notes.any { note -> note.content.contains(query, ignoreCase = true) }
         }
+        searchResults.value = results
+        searchTerm.value = query
+        isSearchResultScreen.value = true
     }
 
+
+
+    if (isSearchResultScreen.value) {
+        SearchResultScreen(
+            searchResults = searchResults.value,
+            searchTerm = searchTerm.value,
+            navigateToEdit = { notebookId ->
+                noteViewModel.init(notebookId)
+                navigateToEdit()
+                isSearchResultScreen.value = false
+            },
+            onBack = { isSearchResultScreen.value = false }
+        )
+    }
+    else {
     Scaffold(
         topBar = {
             if (isSelecting) {
@@ -409,6 +427,7 @@ fun MainScreen(
                 val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
                 val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
                 var noteFirstText = ""
+
                 if (noteFirst?.type == NoteType.Text) {
                     noteFirstText = noteFirst.content
                 } else if (noteFirst?.type == NoteType.Photo) {
@@ -418,14 +437,26 @@ fun MainScreen(
                 } else if (noteFirst?.type == NoteType.Video) {
                     noteFirstText = "视频"
                 }
-                val lastEditedTime =
-                    notebookDetails.changeTime // Assuming you have a field for last edited time
 
+                // Truncate title and subtext1 to 50 characters
+                val truncatedTitle = if ((noteTitle?.content?.length ?: 0) > 50) {
+                    noteTitle?.content?.substring(0, 50) + "..."
+                } else {
+                    noteTitle?.content ?: ""
+                }
+
+                val truncatedSubText1 = if (noteFirstText.length > 50) {
+                    noteFirstText.substring(0, 50) + "..."
+                } else {
+                    noteFirstText
+                }
+
+                val lastEditedTime = notebookDetails.changeTime // Assuming you have a field for last edited time
 
                 item {
                     CustomListItem(
-                        text = noteTitle?.content ?: "",
-                        subText1 = noteFirstText,
+                        text = truncatedTitle,
+                        subText1 = truncatedSubText1,
                         subText2 = lastEditedTime, // Convert last edited time to a suitable string format
                         isSelecting = isSelecting,
                         isSelected = selectedItems.contains(localNotebookUiState.notebookList.size - 1 - idx),
@@ -443,8 +474,11 @@ fun MainScreen(
             }
         }
     }
+    }
 
-    MainSearchDialog(isDialogOpen = isSearchDialogOpen, onSearch = { /* Handle search */ })
+    MainSearchDialog(isDialogOpen = isSearchDialogOpen, onSearch = { query ->
+        performSearch(query)
+    })
 }
 
 @Composable
@@ -492,6 +526,7 @@ fun MainSearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> 
     }
 }
 
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CustomListItem(
@@ -515,8 +550,14 @@ fun CustomListItem(
                 onLongClick = onLongPress
             )
     ) {
-        Row(modifier = Modifier.padding(12.dp)) {
-            Column {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = text,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -537,9 +578,11 @@ fun CustomListItem(
                     color = Color.Gray
                 )
             }
-            Spacer(modifier = Modifier.weight(1f)) // This pushes the checkbox to the right
             if (isSelecting) {
                 Checkbox(
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .padding(start = 6.dp),
                     checked = isSelected,
                     onCheckedChange = { onSelect() }
                 )
@@ -547,6 +590,9 @@ fun CustomListItem(
         }
     }
 }
+
+
+
 
 @Composable
 fun BottomNavigationBar(selectedTab: Int, isSelecting: Boolean, onMove: () -> Unit, onDelete: () -> Unit, onNoteClick: () -> Unit,
@@ -744,5 +790,111 @@ fun CreateDirectorySheet(
                 .fillMaxWidth()
                 .padding(16.dp)
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchResultScreen(
+    searchResults: List<NotebookDetails>,
+    searchTerm: String,
+    navigateToEdit: (Int) -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Search Results") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(modifier = Modifier.padding(padding)) {
+            items(searchResults) { notebook ->
+                SearchResultItem(
+                    notebook = notebook,
+                    enterEditScreen = { navigateToEdit(notebook.id) },
+                )
+            }
+        }
+    }
+}
+
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SearchResultItem(
+    notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    notebook: NotebookDetails,
+    enterEditScreen: () -> Unit,
+) {
+    val noteTitle = notebookViewModel.getTitleNote(notebook.id)
+    val noteFirst = notebookViewModel.getFirstNote(notebook.id)
+    var noteFirstText = ""
+
+    if (noteFirst?.type == NoteType.Text) {
+        noteFirstText = noteFirst.content
+    } else if (noteFirst?.type == NoteType.Photo) {
+        noteFirstText = "图片"
+    } else if (noteFirst?.type == NoteType.Audio) {
+        noteFirstText = "音频"
+    } else if (noteFirst?.type == NoteType.Video) {
+        noteFirstText = "视频"
+    }
+
+    // Truncate title and subtext1 to 50 characters
+    val truncatedTitle = if ((noteTitle?.content?.length ?: 0) > 50) {
+        noteTitle?.content?.substring(0, 50) + "..."
+    } else {
+        noteTitle?.content ?: ""
+    }
+
+    val truncatedSubText1 = if (noteFirstText.length > 50) {
+        noteFirstText.substring(0, 50) + "..."
+    } else {
+        noteFirstText
+    }
+
+    val lastEditedTime = notebook.changeTime // Assuming you have a field for last edited time
+
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 16.dp)
+            .alpha(0.95f)
+            .clickable(onClick = enterEditScreen)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = truncatedTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = truncatedSubText1,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = lastEditedTime,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+        }
     }
 }

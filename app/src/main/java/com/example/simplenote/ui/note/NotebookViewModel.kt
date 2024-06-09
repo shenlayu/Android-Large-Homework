@@ -4,8 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.simplenote.data.DirectoriesRepository
-import com.example.simplenote.data.Directory
 import com.example.simplenote.data.DirectoryWithNotebooks
+import com.example.simplenote.data.NoteType
 import com.example.simplenote.data.Notebook
 import com.example.simplenote.data.NotebooksRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -213,25 +213,27 @@ class NotebookViewModel(
 
         return null
     }
-    fun getSecondNote(notebookID: Int): NoteDetails? {
+    fun getAllTextNotes(notebookID: Int): List<NoteDetails> {
         val notes = runBlocking {
             notebookRepository.getNotebookWithNotes(notebookID).firstOrNull()?.notes
         }
 
-        var jump = true
-        if (notes != null) {
-            for(note in notes) {
-                if(!note.isTitle) {
-                    if(jump) {
-                        jump = false
-                        continue
-                    }
-                    return note.toNoteDetails()
-                }
+        val textNotes = mutableListOf<NoteDetails>()
+        notes?.forEach { note ->
+            if (note.type == NoteType.Text) {
+                textNotes.add(note.toNoteDetails())
             }
         }
 
-        return null
+        return textNotes
+    }
+
+    fun getNotebook(notebookID: Int): NotebookDetails? {
+        var notebook: NotebookDetails?
+        runBlocking {
+            notebook = notebookRepository.getNotebookStream(notebookID).firstOrNull()?.toNotebookDetails()
+        }
+        return notebook
     }
 }
 

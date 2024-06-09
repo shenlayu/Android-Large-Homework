@@ -92,6 +92,7 @@ import androidx.media3.ui.PlayerView
 import coil.compose.rememberAsyncImagePainter
 import com.example.simplenote.R
 import com.example.simplenote.data.NoteType
+import com.example.simplenote.ui.note.DirectoryViewModel
 import com.example.simplenote.ui.note.NoteDetails
 import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookViewModel
@@ -218,6 +219,7 @@ fun EditorScreen(
     contentItems: MutableState<MutableList<ContentItem>>,
     noteViewModel: NoteViewModel = viewModel(factory = AppViewModelProvider.Factory),
     notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateToMain: () -> Unit = {},
     navigateBack: () -> Unit = {},
 ) {
@@ -228,9 +230,6 @@ fun EditorScreen(
     val isLoading = remember { mutableStateOf(false) }
     val aiSummary = remember { mutableStateOf("") }
     val localNoteUiState by noteViewModel.uiState.collectAsState()
-    val noteList = remember {
-        mutableListOf<NoteDetails>()
-    }
 
     var canLaunch by rememberSaveable { mutableStateOf(true) }
     if (canLaunch && localNoteUiState.noteList.isNotEmpty()) {
@@ -244,7 +243,11 @@ fun EditorScreen(
             else -> 0
         }
     }
-    val notebookName = "我的笔记本"
+    val directoryName = localNoteUiState.notebookId
+        ?.let { notebookViewModel.getNotebook(it) }
+        ?.let { notebook -> directoryViewModel.getDirectory(notebook.directoryId)?.name }
+        ?: ""
+
 
     val searchTerm = remember { mutableStateOf("") }
     val matches = remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
@@ -274,7 +277,7 @@ fun EditorScreen(
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
-            InfoBar(currentDate, totalCharacters, notebookName)
+            InfoBar(currentDate, totalCharacters, directoryName)
             Divider(color = Color.LightGray, thickness = 1.dp)
             LazyColumn {
                 itemsIndexed(contentItems.value) { index, item ->
@@ -377,7 +380,7 @@ fun EditTextItem(
 
 // 在topbar和底下的编辑区之间加一行小字，小字显示分三栏，分别显示当前日期、该笔记总字数、该笔记所属笔记本名称
 @Composable
-fun InfoBar(currentDate: String, totalCharacters: Int, notebookName: String) {
+fun InfoBar(currentDate: String, totalCharacters: Int, directoryName: String) {
 
     Row(
         modifier = Modifier.padding(8.dp)
@@ -415,7 +418,7 @@ fun InfoBar(currentDate: String, totalCharacters: Int, notebookName: String) {
                 .width(1.dp)
         )
         Text(
-            text = notebookName,
+            text = directoryName,
             color = Color.Gray,
             fontSize = 12.sp,
             modifier = Modifier
@@ -1343,7 +1346,7 @@ fun LoadingDialog(isLoading: MutableState<Boolean>) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("生成中...") },
-            text = { Text("正在使用AI生成总结，请稍候...") },
+            text = { Text("正在使用智谱清言AI生成总结，请稍候...") },
             confirmButton = {}
         )
     }

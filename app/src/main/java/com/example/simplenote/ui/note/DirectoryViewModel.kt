@@ -1,6 +1,5 @@
 package com.example.simplenote.ui.note
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.simplenote.data.DirectoriesRepository
@@ -141,6 +140,15 @@ class DirectoryViewModel(
             println("changeDirectoryName ERROR: No user found")
         }
     }
+
+    fun getDirectory(directoryID: Int): DirectoryDetails? {
+        var directory: DirectoryDetails?
+        runBlocking {
+            directory = directoriesRepository.getDirectory(directoryID).firstOrNull()?.toDirectoryDetails()
+        }
+        return directory
+    }
+
 
 //    fun Updatetext(text: String) {
 //        _uiState.value = _uiState.value.copy(SavedText = text)
