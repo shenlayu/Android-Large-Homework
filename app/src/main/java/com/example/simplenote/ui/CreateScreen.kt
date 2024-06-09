@@ -691,7 +691,7 @@ fun SearchDialog(isDialogOpen: MutableState<Boolean>, onSearch: (String) -> Unit
 fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): String {
     val allText: String = contentItems.value.filterIsInstance<ContentItem.TextItem>().joinToString(" ") { it.text.value.text }
 
-    val url = "http://183.173.162.33:8080/process_string"
+    val url = "http:/192.168.249.1:8080/process_string"
     val jsonObject = JSONObject()
     jsonObject.put("input_string", allText)
     val jsonString = jsonObject.toString()
@@ -709,12 +709,12 @@ fun generateSummary(contentItems: MutableState<MutableList<ContentItem>>): Strin
                         val gson = Gson()
                         val jsonObject = gson.fromJson(data, JsonObject::class.java)
                         val outputString = jsonObject.get("output_string").asString
-//                        Log.d("AI Summary", "success $outputString")
+                        Log.d("AI Summary", "success $outputString")
                         returnVal = outputString
                     }
                     is Result.Failure -> {
                         val ex = result.getException()
-//                        Log.d("AI Summary", "false $ex")
+                        Log.d("AI Summary", "false $ex")
                     }
                 }
             }
