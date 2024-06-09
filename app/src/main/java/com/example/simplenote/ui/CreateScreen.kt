@@ -221,7 +221,6 @@ fun EditorScreen(
     notebookViewModel: NotebookViewModel = viewModel(factory = AppViewModelProvider.Factory),
     directoryViewModel: DirectoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateToMain: () -> Unit = {},
-    navigateBack: () -> Unit = {},
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val currentDate = remember { dateFormat.format(Date()) }
