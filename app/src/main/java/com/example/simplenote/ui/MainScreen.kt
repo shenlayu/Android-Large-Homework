@@ -127,8 +127,19 @@ fun MainScreen(
 
     if(localDirectoryUiState.directoryList.isNotEmpty()) {
         if(isFirstLaunch.value) {
+//            localUser?.id?.let {
+//                directoryViewModel.init(localUser!!.id)
+//            }
+//            Log.d("add1", "why ${localNotebookUiState.directoryID}")
             isFirstLaunch.value = false
-            if(localNotebookUiState.directoryID != null && localNotebookUiState.directoryID != localDirectoryUiState.directoryList[0].id) {
+            val directoryList: MutableList<Int> = emptyList<Int>().toMutableList()
+            localDirectoryUiState.directoryList.forEach {
+                directoryList.add(it.id)
+            }
+            if(!(localNotebookUiState.directoryID in directoryList)) {
+                notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
+            }
+            else if(localNotebookUiState.directoryID != null && localNotebookUiState.directoryID != localDirectoryUiState.directoryList[0].id) {
                 notebookViewModel.init(localNotebookUiState.directoryID)
                 id.intValue = localNotebookUiState.directoryID!!
             }
@@ -233,7 +244,7 @@ fun MainScreen(
 //                            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)
                             val avatar = localUser?.avatar
 //                            Log.d("add1", "avatar ${userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)}")
-                            Log.d("add1", "avatar me $avatar}")
+//                            Log.d("add1", "avatar me $avatar}")
                             Image(
                                 painter = if (avatar == "default") {
                                     painterResource(id = R.drawable.avatar)
