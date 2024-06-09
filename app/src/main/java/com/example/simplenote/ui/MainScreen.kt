@@ -81,6 +81,7 @@ import com.example.simplenote.ui.note.NoteViewModel
 import com.example.simplenote.ui.note.NotebookDetails
 import com.example.simplenote.ui.note.NotebookViewModel
 import com.example.simplenote.ui.note.SortType
+import com.example.simplenote.ui.note.UserDetails
 import com.example.simplenote.ui.note.UserViewModel
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -117,6 +118,11 @@ fun MainScreen(
     val searchResults = remember { mutableStateOf<List<NotebookDetails>>(emptyList()) }
     val searchTerm = remember { mutableStateOf("") }
     val isSearchResultScreen = remember { mutableStateOf(false) }
+//    val avatar = localUserUiScale.userDetails.avatar
+    var localUser: UserDetails? = null
+    localUserUiScale.loggedUserDetails?.let {
+        localUser = userViewModel.getUser(localUserUiScale.loggedUserDetails!!.userId)
+    }
 
 
     if(localDirectoryUiState.directoryList.isNotEmpty()) {
@@ -224,7 +230,10 @@ fun MainScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = navigateToMe, modifier = Modifier.padding(start = 8.dp)) {
-                            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)
+//                            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)
+                            val avatar = localUser?.avatar
+//                            Log.d("add1", "avatar ${userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)}")
+                            Log.d("add1", "avatar me $avatar}")
                             Image(
                                 painter = if (avatar == "default") {
                                     painterResource(id = R.drawable.avatar)

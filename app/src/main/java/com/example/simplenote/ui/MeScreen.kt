@@ -75,7 +75,7 @@ fun MeScreen(
     val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
     val context = LocalContext.current
-    Log.d("iii", userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId))
+//    Log.d("iii", userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId))
 
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -146,7 +146,19 @@ fun MeScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val avatar = avatarUri?.let { it.toString() } ?: userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId)
+            var avatar: String = ""
+            if(avatarUri?.toString() != null) {
+                avatar = avatarUri?.toString()!!
+            }
+            else {
+                localUserUiScale.loggedUserDetails ?. let {
+                    avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId)
+                }
+            }
+//            val avatar = avatarUri?.toString() ?: userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId)
+//            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId)
+//            Log.d("add1", "avatar me ${userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)}")
+            Log.d("add1", "avatar me $avatar}")
             Image(
                 painter = if (avatar == "default") {
                     painterResource(id = R.drawable.avatar)
@@ -164,14 +176,14 @@ fun MeScreen(
             )
             Spacer(modifier = Modifier.padding(8.dp))
             Text(
-                text = userViewModel.getUserNickname(localUserUiScale.loggedUserDetails!!.userId),
+                text = if(localUserUiScale.loggedUserDetails != null) userViewModel.getUserNickname(localUserUiScale.loggedUserDetails!!.userId) else "",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { showNicknameDialog = true }
             )
             Spacer(modifier = Modifier.padding(4.dp))
             Text(
-                text = userViewModel.getUserSignature(localUserUiScale.loggedUserDetails!!.userId),
+                text = if(localUserUiScale.loggedUserDetails != null) userViewModel.getUserSignature(localUserUiScale.loggedUserDetails!!.userId) else "",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Light,
                 color = androidx.compose.ui.graphics.Color.Gray,
