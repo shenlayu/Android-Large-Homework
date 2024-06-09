@@ -105,6 +105,16 @@ class UserViewModel(
             }
         }
     }
+    fun setSignature(username: String, signature: String) {
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUser(username).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                userDetails.signature = signature
+                usersRepository.updateUser(userDetails.toUser())
+            }
+        }
+    }
     fun getUser(userID: Int): UserDetails? {
         val user = runBlocking {
             usersRepository.searchUserById(userID).firstOrNull()
@@ -198,6 +208,17 @@ class UserViewModel(
         }
         return nickname
     }
+    fun getUserSignature(userID: Int): String {
+        var signature: String = ""
+        runBlocking {
+            val userDetails: UserDetails? =
+                usersRepository.searchUserById(userID).firstOrNull()?.toUserDetails()
+            userDetails?.let {
+                signature = userDetails.signature
+            }
+        }
+        return signature
+    }
 }
 
 data class UserDetails(
@@ -205,21 +226,24 @@ data class UserDetails(
     var username: String = "",
     var password: String = "",
     var nickname: String = "",
-    var avatar: String = ""
+    var avatar: String = "",
+    var signature: String = ""
 )
 fun UserDetails.toUser(): User = User(
     id = id,
     username = username,
     password = password,
     nickname = nickname,
-    avatar = avatar
+    avatar = avatar,
+    signature = signature
 )
 fun User.toUserDetails(): UserDetails = UserDetails(
     id = id,
     username = username,
     password = password,
     nickname = nickname,
-    avatar = avatar
+    avatar = avatar,
+    signature = signature
 )
 data class LoggedUserUiState (
     val loggedUserDetails: LoggedUserDetails? = null

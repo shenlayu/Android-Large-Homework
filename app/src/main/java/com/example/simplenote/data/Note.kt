@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import com.example.simplenote.ui.note.SortType
+import java.security.Signature
 
 // 实体，对应数据库中一张表
 // 用户
@@ -15,7 +16,8 @@ data class User(
     val username: String,
     val password: String,
     val nickname: String,
-    val avatar: String
+    val avatar: String,
+    val signature: String
 )
 
 // 文件夹
