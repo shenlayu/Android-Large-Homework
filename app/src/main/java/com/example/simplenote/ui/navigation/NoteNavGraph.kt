@@ -66,7 +66,6 @@ fun NoteNavHost(
                 notebookViewModel = notebookViewModel,
                 noteViewModel = noteViewModel,
                 navigateToMain = { navController.navigate(pages.Main.name) },
-                navigateBack = { navController.navigateUp() },
             )
         }
         // 登录注册界面
