@@ -158,7 +158,7 @@ fun MeScreen(
 //            val avatar = avatarUri?.toString() ?: userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId)
 //            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.userId)
 //            Log.d("add1", "avatar me ${userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)}")
-            Log.d("add1", "avatar me $avatar}")
+//            Log.d("add1", "avatar me $avatar}")
             Image(
                 painter = if (avatar == "default") {
                     painterResource(id = R.drawable.avatar)
