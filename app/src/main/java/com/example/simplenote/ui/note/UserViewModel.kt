@@ -3,6 +3,7 @@ package com.example.simplenote.ui.note
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cn.hutool.core.thread.ThreadUtil.sleep
 import com.example.simplenote.data.DirectoriesRepository
 import com.example.simplenote.data.LoggedUser
 import com.example.simplenote.data.LoggedUserRepository
@@ -11,6 +12,7 @@ import com.example.simplenote.data.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -27,10 +29,17 @@ class UserViewModel(
 
     init {
         // TODO: 将database中存储的loggedUser读到本地，这样碗外面就不再需要loggedUserRRepository了
-        viewModelScope.launch {
+        runBlocking {
             val loggedUserDetails: LoggedUserDetails? = loggedUserRepository.getLoggedUser().firstOrNull()?.firstOrNull()?.toLoggedUserDetails()
             _uiState.value = _uiState.value.copy(loggedUserDetails = loggedUserDetails)
         }
+//        runBlocking {
+//            _uiState.value.loggedUserDetails?.userId?.let {
+//                _uiState.value = _uiState.value.copy(
+//                    userDetails = usersRepository.searchUserById(_uiState.value.loggedUserDetails!!.userId).first().toUserDetails()
+//                )
+//            }
+//        }
     }
     fun insertUser(username: String, password: String) {
         val userDetails = UserDetails(
@@ -188,15 +197,15 @@ class UserViewModel(
         return returnVal
     }
     fun getUserAvatar(userID: Int): String {
-        var avater: String = ""
+        var avatar: String = ""
         runBlocking {
             val userDetails: UserDetails? =
                 usersRepository.searchUserById(userID).firstOrNull()?.toUserDetails()
             userDetails?.let {
-                avater = userDetails.avatar
+                avatar = userDetails.avatar
             }
         }
-        return avater
+        return avatar
     }
     fun getUserNickname(userID: Int): String {
         var nickname: String = ""
@@ -247,7 +256,8 @@ fun User.toUserDetails(): UserDetails = UserDetails(
     signature = signature
 )
 data class LoggedUserUiState (
-    val loggedUserDetails: LoggedUserDetails? = null
+    val loggedUserDetails: LoggedUserDetails? = null,
+//    val userDetails: UserDetails = UserDetails()
 )
 data class LoggedUserDetails(
     val id: Int = 0,
