@@ -2,6 +2,9 @@ package com.example.simplenote.ui
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -358,71 +361,80 @@ fun MainScreen(
         },
         bottomBar = {
             if (showBottomSheet) {
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        showBottomSheet = false
-                        isCreatingDirectory = false
-                    },
-                    sheetState = sheetState
+                AnimatedVisibility(
+                    visible = showBottomSheet,
+                    enter = slideInVertically(initialOffsetY = { it }),
+                    exit = slideOutVertically(targetOffsetY = { it })
                 ) {
-                    if (isCreatingDirectory) {
-                        CreateDirectorySheet(
-                            directories = localDirectoryUiState.directoryList,
-                            onCancel = {
-                                isCreatingDirectory = false
-                            },
-                            onSave = { name ->
-                                directoryViewModel.insertDirectory(name)
-                                isCreatingDirectory = false
-                            }
-                        )
-                    } else {
-                        BottomSheetContent(
-                            onClose = {
-                                scope.launch { sheetState.hide() }
-                                    .invokeOnCompletion { showBottomSheet = false }
-                            },
-                            onCreateDirectory = { isCreatingDirectory = true },
-                            onDirectoryClick = {
-                                id.intValue = it.id
-
-                                if(id.intValue == localDirectoryUiState.directoryList[0].id) {
-                                    notebookViewModel.init(id.intValue, localDirectoryUiState.directoryList)
+                    ModalBottomSheet(
+                        onDismissRequest = {
+                            showBottomSheet = false
+                            isCreatingDirectory = false
+                        },
+                        sheetState = sheetState
+                    ) {
+                        if (isCreatingDirectory) {
+                            CreateDirectorySheet(
+                                directories = localDirectoryUiState.directoryList,
+                                onCancel = {
+                                    isCreatingDirectory = false
+                                },
+                                onSave = { name ->
+                                    directoryViewModel.insertDirectory(name)
+                                    isCreatingDirectory = false
                                 }
-                                else {
-                                    notebookViewModel.init(id.intValue)
-                                }
-                                Log.d("add1", "id ${localNotebookUiState.directoryID}")
-                            },
-                            directories = localDirectoryUiState.directoryList,
-                        )
+                            )
+                        } else {
+                            BottomSheetContent(
+                                onClose = {
+                                    scope.launch { sheetState.hide() }
+                                        .invokeOnCompletion { showBottomSheet = false }
+                                },
+                                onCreateDirectory = { isCreatingDirectory = true },
+                                onDirectoryClick = {
+                                    id.intValue = it.id
+                                    if(id.intValue == localDirectoryUiState.directoryList[0].id) {
+                                        notebookViewModel.init(id.intValue, localDirectoryUiState.directoryList)
+                                    } else {
+                                        notebookViewModel.init(id.intValue)
+                                    }
+                                    showBottomSheet = false
+                                },
+                                directories = localDirectoryUiState.directoryList,
+                            )
+                        }
                     }
                 }
-
             } else if (isSelecting && showMoveMenu) {
-                ModalBottomSheet(
-                    onDismissRequest = { showMoveMenu = false },
-                    sheetState = sheetState
+                AnimatedVisibility(
+                    visible = showMoveMenu,
+                    enter = slideInVertically(initialOffsetY = { it }),
+                    exit = slideOutVertically(targetOffsetY = { it })
                 ) {
-                    BottomSheetMoveContent(
-                        directories = localDirectoryUiState.directoryList,
-                        onCancel = { showMoveMenu = false },
-                        onConfirm = {
+                    ModalBottomSheet(
+                        onDismissRequest = { showMoveMenu = false },
+                        sheetState = sheetState
+                    ) {
+                        BottomSheetMoveContent(
+                            directories = localDirectoryUiState.directoryList,
+                            onCancel = { showMoveMenu = false },
+                            onConfirm = {
 //                            moveNotebooksToDirectory()
-                            showMoveMenu = false
-                            isSelecting = false
-                            selectedItems = emptySet()
-                            if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
-                                notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
-                                id.intValue = localDirectoryUiState.directoryList[0].id
-                            }
-                        },
-                        onDirectoryClick = { directory ->
-                            moveToDirectoryId = directory.id
-                        },
-                        selectedNotebooks = selectedItems,
-                        notebookViewModel = notebookViewModel
-                    )
+                                showMoveMenu = false
+                                isSelecting = false
+                                selectedItems = emptySet()
+                                if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
+                                    notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
+                                    id.intValue = localDirectoryUiState.directoryList[0].id
+                                }
+                            },
+                            onDirectoryClick = { directory ->
+                                moveToDirectoryId = directory.id
+                            },
+                            selectedNotebooks = selectedItems,
+                            notebookViewModel = notebookViewModel
+                        )
+                    }
                 }
             } else {
                 BottomNavigationBar(
@@ -436,8 +448,6 @@ fun MainScreen(
                             localNotebookUiState.notebookList.forEach {
                             }
                         }
-
-                        // 清除选中的项目
                         selectedItems = setOf()
                         isSelecting = false
                     },
@@ -692,7 +702,10 @@ fun BottomSheetContent(
             items(directories) { directory ->
                 Box(
                     modifier = Modifier
-                        .clickable { onDirectoryClick(directory) }
+                        .clickable {
+                            onDirectoryClick(directory)
+                            onClose() // Hide the bottom sheet with animation
+                        }
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
@@ -703,6 +716,7 @@ fun BottomSheetContent(
         }
     }
 }
+
 
 @Composable
 fun BottomSheetMoveContent(
@@ -732,12 +746,12 @@ fun BottomSheetMoveContent(
             )
             Spacer(modifier = Modifier.weight(1f))
             TextButton(onClick = {
-                // todo
+                // Confirm and close
                 selectedNotebooks.forEach {
-                    Log.d("add1", "listid ${it}")
                     notebookViewModel.changeNotebookDirectory(it, directoryChosenID)
                 }
                 onConfirm()
+                onCancel() // Hide the bottom sheet with animation
             }, modifier = Modifier.weight(1f)) {
                 Text("确定")
             }
@@ -748,9 +762,9 @@ fun BottomSheetMoveContent(
                 Box(
                     modifier = Modifier
                         .clickable {
-                            // todo
                             directoryChosenID = directory.id
                             onDirectoryClick(directory)
+                            onCancel() // Hide the bottom sheet with animation
                         }
                         .fillMaxWidth()
                         .padding(16.dp)
@@ -774,6 +788,7 @@ fun BottomSheetMoveContent(
         }
     }
 }
+
 
 @Composable
 fun CreateDirectorySheet(
@@ -833,7 +848,7 @@ fun SearchResultScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Search Results") },
+                title = { Text("搜索结果") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Back")
