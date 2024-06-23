@@ -347,7 +347,7 @@ fun EditSignatureDialog(currentSignature: String, onDismiss: () -> Unit, onSave:
     )
 }
 
-private fun createImageUri(context: Context): Uri? {
+fun createImageUri(context: Context): Uri? {
     return try {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val storageDir = context.getExternalFilesDir(null)

@@ -1,12 +1,16 @@
 package com.example.simplenote.ui
 
+import android.Manifest
 import android.content.ClipData
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
@@ -20,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -32,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -67,7 +73,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -82,6 +87,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Popup
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -105,6 +112,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -251,6 +259,9 @@ fun EditorScreen(
     val matches = remember { mutableStateOf(listOf<Pair<Int, Int>>()) }
     val currentMatchIndex = remember { mutableStateOf(0) }
 
+    // Call the auto-save function
+    AutoSave(contentItems, noteViewModel)
+
     Scaffold(
         topBar = {
             EditorTopBar(
@@ -321,6 +332,22 @@ fun EditorScreen(
     LoadingDialog(isLoading = isLoading)
     AISummaryDialog(aiSummary = aiSummary)
 }
+
+@Composable
+fun AutoSave(contentItems: MutableState<MutableList<ContentItem>>, noteViewModel: NoteViewModel) {
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        coroutineScope.launch {
+            while (true) {
+                delay(5000) // 五秒更新一次
+                noteViewModel.saveNotes(contentItems.value)
+                Log.d("AutoSave", "Content auto-saved")
+            }
+        }
+    }
+}
+
 
 @Composable
 fun EditTextItem(
@@ -486,6 +513,72 @@ fun EditorTopBar(
 
 @Composable
 fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: Context, onAIClick: () -> Unit) {
+    val showImageSourceDialog = remember { mutableStateOf(false) }
+    val newUri = remember { mutableStateOf<Uri?>(null) }
+    val showAudioSourceDialog = remember { mutableStateOf(false) }
+    val showRecordingDialog = remember { mutableStateOf(false) }
+    val isRecording = remember { mutableStateOf(false) }
+    val audioFilePath = remember { mutableStateOf<String?>(null) }
+    val mediaRecorder = remember { mutableStateOf<MediaRecorder?>(null) }
+    val takePhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success: Boolean ->
+            if (success) {
+                newUri.let { uri ->
+                    saveState(contentItems.value)
+                    clearRedoStack()
+                    val items = contentItems.value.toMutableList()
+
+                    val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                    if (index != -1) {
+                        val currentItem = items[index] as ContentItem.TextItem
+                        val cursorPosition = currentItem.text.value.selection.start
+                        val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                        when (cursorPosition) {
+                            currentItem.text.value.text.length -> {
+                                // 光标在末尾
+                                items.add(index + 1, ContentItem.ImageItem(uri.value!!))
+                                items.add(index + 2, newTextItem)
+                            }
+
+                            0 -> {
+                                // 光标在开头
+                                newTextItem.isFocused.value = true
+                                items.add(index, newTextItem)
+                                items.add(index + 1, ContentItem.ImageItem(uri.value!!))
+                            }
+
+                            else -> {
+                                // 光标在中间
+                                val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
+                                val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                                val firstTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                                firstTextItem.isFocused.value = true
+                                val secondTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                                items[index] = firstTextItem
+                                items.add(index + 1, ContentItem.ImageItem(uri.value!!))
+                                items.add(index + 2, secondTextItem)
+                            }
+                        }
+                    }
+                    contentItems.value = items
+                }
+            }
+        }
+    )
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                val uri = createImageUri(context)
+                if (uri != null) {
+                    newUri.value = uri
+                    takePhotoLauncher.launch(uri)
+                }
+            }
+        }
+    )
 
     val imageLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -547,18 +640,15 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
                         val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
                         when (cursorPosition) {
                             currentItem.text.value.text.length -> {
-                                // 光标在末尾
                                 items.add(index + 1, ContentItem.AudioItem(it))
                                 items.add(index + 2, newTextItem)
                             }
                             0 -> {
-                                // 光标在开头
                                 newTextItem.isFocused.value = true
                                 items.add(index, newTextItem)
                                 items.add(index + 1, ContentItem.AudioItem(it))
                             }
                             else -> {
-                                // 光标在中间
                                 val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
                                 val textAfter = currentItem.text.value.text.substring(cursorPosition)
                                 val firstTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
@@ -619,56 +709,191 @@ fun ControlPanel(contentItems: MutableState<MutableList<ContentItem>>, context: 
             }
         }
 
+
     val currentFocusIsTitle =
         contentItems.value.any { it is ContentItem.TextItem && it.isFocused.value && it.isTitle }
 
-    BottomAppBar(modifier = Modifier.imePadding()) {
-        // Image Button
-        IconButton(
-            onClick = { if (!currentFocusIsTitle) imageLauncher.launch("image/*") },
-            enabled = !currentFocusIsTitle
-        ) {
-            Icon(
-                painter = rememberAsyncImagePainter(R.drawable.ic_add_photo),
-                contentDescription = "Add Image"
-            )
+    fun startRecording(context: Context, mediaRecorderState: MutableState<MediaRecorder?>, audioFilePath: MutableState<String?>, onRecorderInitialized: (MediaRecorder) -> Unit) {
+        val fileName = "${context.externalCacheDir?.absolutePath}/audiorecordtest.3gp"
+        val recorder = MediaRecorder().apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+            setOutputFile(fileName)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+            prepare()
+            start()
         }
+        audioFilePath.value = fileName
+        onRecorderInitialized(recorder)
+    }
 
-        Spacer(Modifier.weight(1f, true))
-
-        // AI Button
-        IconButton(onClick = onAIClick) {
-            Icon(
-                painter = painterResource(R.drawable.ic_ai_24),
-                contentDescription = "AI Summary",
-                tint = Color.Unspecified
-            )
+    fun stopRecording(context: Context, mediaRecorder: MediaRecorder?, audioFilePath: String?, onRecordingStopped: (Uri) -> Unit) {
+        mediaRecorder?.apply {
+            stop()
+            release()
         }
-
-        Spacer(Modifier.weight(1f, true))
-        // Audio Button
-        IconButton(
-            onClick = { if (!currentFocusIsTitle) audioLauncher.launch("audio/*") },
-            enabled = !currentFocusIsTitle
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_add_audio),
-                contentDescription = "Add Audio"
-            )
-        }
-
-        Spacer(Modifier.weight(1f, true))
-        // Video Button
-        IconButton(
-            onClick = { if (!currentFocusIsTitle) videoLauncher.launch("video/*") },
-            enabled = !currentFocusIsTitle
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.baseline_video_library_24),
-                contentDescription = "Add Video"
-            )
+        audioFilePath?.let {
+            val file = File(it)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            onRecordingStopped(uri)
         }
     }
+
+    BottomAppBar(modifier = Modifier.imePadding()) {
+        IconButton(onClick = { if (!currentFocusIsTitle) showImageSourceDialog.value = true }, enabled = !currentFocusIsTitle) {
+            Icon(painter = rememberAsyncImagePainter(R.drawable.ic_add_photo), contentDescription = "Add Image")
+        }
+        Spacer(Modifier.weight(1f, true))
+        IconButton(onClick = onAIClick) {
+            Icon(painter = painterResource(R.drawable.ic_ai_24), contentDescription = "AI Summary", tint = Color.Unspecified)
+        }
+        Spacer(Modifier.weight(1f, true))
+        IconButton(onClick = { if (!currentFocusIsTitle) showAudioSourceDialog.value = true }, enabled = !currentFocusIsTitle) {
+            Icon(painter = painterResource(R.drawable.ic_add_audio), contentDescription = "Add Audio")
+        }
+        Spacer(Modifier.weight(1f, true))
+        IconButton(onClick = { if (!currentFocusIsTitle) videoLauncher.launch("video/*") }, enabled = !currentFocusIsTitle) {
+            Icon(painter = painterResource(R.drawable.baseline_video_library_24), contentDescription = "Add Video")
+        }
+    }
+
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            startRecording(context, mediaRecorder, audioFilePath) { newRecorder ->
+                mediaRecorder.value = newRecorder
+            }
+            isRecording.value = true
+        } else {
+            Toast.makeText(context, "录音权限被拒绝", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (showImageSourceDialog.value) {
+        ImageSourceSelectionDialog(
+            onDismiss = { showImageSourceDialog.value = false },
+            onTakePhoto = {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    val uri = createImageUri(context)
+                    if (uri != null) {
+                        newUri.value = uri
+                        takePhotoLauncher.launch(uri)
+                    }
+                } else {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+                showImageSourceDialog.value = false
+            },
+            onSelectFromGallery = {
+                imageLauncher.launch("image/*")
+                showImageSourceDialog.value = false
+            }
+        )
+    }
+
+    if (showAudioSourceDialog.value) {
+        AudioSourceSelectionDialog(
+            onDismiss = { showAudioSourceDialog.value = false },
+            onImportAudio = {
+                audioLauncher.launch("audio/*")
+                showAudioSourceDialog.value = false
+            },
+            onRecordAudio = {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                } else {
+                    startRecording(context, mediaRecorder, audioFilePath) { newRecorder ->
+                        mediaRecorder.value = newRecorder
+                    }
+                    isRecording.value = true
+                    showRecordingDialog.value = true
+                    showAudioSourceDialog.value = false
+                }
+            }
+        )
+    }
+
+    if (showRecordingDialog.value) {
+        RecordingDialog(
+            onStopRecording = {
+                stopRecording(context, mediaRecorder.value, audioFilePath.value) { uri ->
+                    saveState(contentItems.value)
+                    clearRedoStack()
+                    val items = contentItems.value.toMutableList()
+                    val index = items.indexOfFirst { it is ContentItem.TextItem && it.isFocused.value }
+                    if (index != -1) {
+                        val currentItem = items[index] as ContentItem.TextItem
+                        val cursorPosition = currentItem.text.value.selection.start
+                        val newTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue("")))
+                        when (cursorPosition) {
+                            currentItem.text.value.text.length -> {
+                                items.add(index + 1, ContentItem.AudioItem(uri))
+                                items.add(index + 2, newTextItem)
+                            }
+                            0 -> {
+                                newTextItem.isFocused.value = true
+                                items.add(index, newTextItem)
+                                items.add(index + 1, ContentItem.AudioItem(uri))
+                            }
+                            else -> {
+                                val textBefore = currentItem.text.value.text.substring(0, cursorPosition)
+                                val textAfter = currentItem.text.value.text.substring(cursorPosition)
+                                val firstTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textBefore)))
+                                firstTextItem.isFocused.value = true
+                                val secondTextItem = ContentItem.TextItem(mutableStateOf(TextFieldValue(textAfter)))
+                                items[index] = firstTextItem
+                                items.add(index + 1, ContentItem.AudioItem(uri))
+                                items.add(index + 2, secondTextItem)
+                            }
+                        }
+                    }
+                    contentItems.value = items
+                }
+                isRecording.value = false
+                showRecordingDialog.value = false
+            }
+        )
+    }
+}
+
+
+@Composable
+fun AudioSourceSelectionDialog(onDismiss: () -> Unit, onImportAudio: () -> Unit, onRecordAudio: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择音频来源") },
+        text = {
+            Column {
+                Button(onClick = onImportAudio) {
+                    Text("从文件导入音频")
+                }
+                Spacer(modifier = Modifier.padding(8.dp))
+                Button(onClick = onRecordAudio) {
+                    Text("录音导入音频")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+@Composable
+fun RecordingDialog(onStopRecording: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text("正在录音") },
+        text = { Text("录音中，请点击下方按钮停止录音") },
+        confirmButton = {
+            Button(onClick = onStopRecording) {
+                Text("停止录音")
+            }
+        },
+        dismissButton = {}
+    )
 }
 
 @Composable
@@ -741,9 +966,7 @@ fun DisplayImageItem(
     }
 
     // 使用Box包裹原有的Column，以便于处理点击外部区域隐藏ItemOptionsBar的逻辑
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        Column(modifier = Modifier.fillMaxWidth()
             .background(color = Color.Transparent)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -754,26 +977,26 @@ fun DisplayImageItem(
                             // 必须调用awaitRelease以确认事件不是在ItemOptionsBar上触发的
                             awaitRelease()
                         }
+                    },
+                    onLongPress = {
+                        triggerVibration()
+                        showOptions.value = !showOptions.value
                     }
                 )
             }
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Log.d("add1", "imaging ${contentItems.value[index]}")
+
+        ) {
             Image(
+                modifier = Modifier
+//                    .fillMaxSize()
+                    .height(300.dp).fillMaxSize()
+//                    .width(50.dp) // This height can be adjusted or made dynamic
+                    .align(Alignment.CenterHorizontally)
+                    .scale(scale.value),
                 painter = rememberAsyncImagePainter(imageItem.imageUri),
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .height(300.dp)
-                    .align(Alignment.CenterHorizontally)
-                    .scale(scale.value)  // 应用缩放动画
-                    .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = {
-                            triggerVibration()
-                            showOptions.value = !showOptions.value
-                        })
-                    }
+//                contentScale = ContentScale.FillWidth,
+
             )
 
             if (showOptions.value) {
@@ -829,8 +1052,35 @@ fun DisplayImageItem(
                 }
             }
         }
-    }
 }
+
+
+@Composable
+fun ImageSourceSelectionDialog(onDismiss: () -> Unit, onTakePhoto: () -> Unit, onSelectFromGallery: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择图片来源") },
+        text = {
+            Column {
+                Button(onClick = onTakePhoto) {
+                    Text("拍照")
+                }
+                Spacer(modifier = Modifier.padding(8.dp))
+                Button(onClick = onSelectFromGallery) {
+                    Text("从图库选择")
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+
 
 
 @Composable
@@ -1391,10 +1641,23 @@ fun SearchNavigation(
                         contentDescription = "Next Match"
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = {
+                    // Clear the search term and matches to exit search mode
+                    searchTerm.value = ""
+                    matches.value = emptyList()
+                    currentMatchIndex.value = 0
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cancel Search"
+                    )
+                }
             }
         }
     }
 }
+
 
 fun focusOnMatch(match: Pair<Int, Int>, contentItems: MutableState<MutableList<ContentItem>>) {
     val (index, position) = match
