@@ -2,6 +2,9 @@ package com.example.simplenote.ui
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -193,316 +196,325 @@ fun MainScreen(
         )
     }
     else {
-    Scaffold(
-        topBar = {
-            if (isSelecting) {
-                TopAppBar(
-                    title = { Text(if (selectedItems.isEmpty()) "请选择项目" else "已选择${selectedItems.size}项") },
-                    navigationIcon = {
-                        TextButton(onClick = { clearSelection() }) {
-                            Text("取消")
+        Scaffold(
+            topBar = {
+                if (isSelecting) {
+                    TopAppBar(
+                        title = { Text(if (selectedItems.isEmpty()) "请选择项目" else "已选择${selectedItems.size}项") },
+                        navigationIcon = {
+                            TextButton(onClick = { clearSelection() }) {
+                                Text("取消")
+                            }
+                        },
+                        actions = {
+                            TextButton(onClick = {
+                                selectedItems = (0 until localNotebookUiState.notebookList.size).toSet()
+                                isSelecting = true
+                            }) {
+                                Text("全选")
+                            }
                         }
-                    },
-                    actions = {
-                        TextButton(onClick = {
-                            selectedItems = (0 until localNotebookUiState.notebookList.size).toSet()
-                            isSelecting = true
-                        }) {
-                            Text("全选")
-                        }
-                    }
-                )
-            } else {
-                TopAppBar(
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clickable { showBottomSheet = !showBottomSheet }
-                        ) {
-                            var listID: Int = 0
-                            for(idx in 0 until localDirectoryUiState.directoryList.size) {
-                                if(localDirectoryUiState.directoryList[idx].id == id.intValue) {
-                                    listID = idx
-                                    break
+                    )
+                } else {
+                    TopAppBar(
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable { showBottomSheet = !showBottomSheet }
+                            ) {
+                                var listID: Int = 0
+                                for(idx in 0 until localDirectoryUiState.directoryList.size) {
+                                    if(localDirectoryUiState.directoryList[idx].id == id.intValue) {
+                                        listID = idx
+                                        break
+                                    }
                                 }
+                                if(localDirectoryUiState.directoryList.isNotEmpty()) {
+                                    Text(localDirectoryUiState.directoryList[listID].name)
+                                } else {
+                                    Text("LOADING")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = if (showBottomSheet) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = "展开"
+                                )
                             }
-                            if(localDirectoryUiState.directoryList.isNotEmpty()) {
-                                Text(localDirectoryUiState.directoryList[listID].name)
-                            } else {
-                                Text("LOADING")
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = if (showBottomSheet) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                                contentDescription = "展开"
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = navigateToMe, modifier = Modifier.padding(start = 8.dp)) {
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = navigateToMe, modifier = Modifier.padding(start = 8.dp)) {
 //                            val avatar = userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)
-                            val avatar = localUser?.avatar
+                                val avatar = localUser?.avatar
 //                            Log.d("add1", "avatar ${userViewModel.getUserAvatar(localUserUiScale.loggedUserDetails!!.id)}")
 //                            Log.d("add1", "avatar me $avatar}")
-                            Image(
-                                painter = if (avatar == "default") {
-                                    painterResource(id = R.drawable.avatar)
-                                } else {
-                                    rememberAsyncImagePainter(model = Uri.parse(avatar))
-                                },
-                                contentDescription = "Avatar",
-                                modifier = Modifier.size(48.dp),
-                                contentScale = ContentScale.Crop,
-                            )
-                        }
-                    },
+                                Image(
+                                    painter = if (avatar == "default") {
+                                        painterResource(id = R.drawable.avatar)
+                                    } else {
+                                        rememberAsyncImagePainter(model = Uri.parse(avatar))
+                                    },
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.size(48.dp),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
+                        },
 
-                    actions = {
-                        IconButton(onClick = { showSortMenu = !showSortMenu }) {
-                            Icon(
-                                rememberAsyncImagePainter(model = R.drawable.baseline_sort_24),
-                                contentDescription = "排序"
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Row {
-                                        Text("按修改时间排序", modifier = Modifier.align(Alignment.CenterVertically))
-                                        if (localNotebookUiState.sortType == SortType.ChangeTime) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = null,
-                                                modifier = Modifier.padding(start = 8.dp)
-                                            )
+                        actions = {
+                            IconButton(onClick = { showSortMenu = !showSortMenu }) {
+                                Icon(
+                                    rememberAsyncImagePainter(model = R.drawable.baseline_sort_24),
+                                    contentDescription = "排序"
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false },
+                                modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Row {
+                                            Text("按修改时间排序", modifier = Modifier.align(Alignment.CenterVertically))
+                                            if (localNotebookUiState.sortType == SortType.ChangeTime) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.padding(start = 8.dp)
+                                                )
+                                            }
                                         }
-                                    }
 
-                                },
-                                onClick = {
-                                    notebookViewModel.changeSortType(SortType.ChangeTime)
-                                    notebookViewModel.sortBySortType()
-                                    showSortMenu = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Divider()
-                            DropdownMenuItem(
-                                text = {
-                                    Row {
-                                        Text("按创建时间排序", modifier = Modifier.align(Alignment.CenterVertically))
-                                        if (localNotebookUiState.sortType == SortType.CreateTime) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = null,
-                                                modifier = Modifier.padding(start = 8.dp)
-                                            )
+                                    },
+                                    onClick = {
+                                        notebookViewModel.changeSortType(SortType.ChangeTime)
+                                        notebookViewModel.sortBySortType()
+                                        showSortMenu = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Divider()
+                                DropdownMenuItem(
+                                    text = {
+                                        Row {
+                                            Text("按创建时间排序", modifier = Modifier.align(Alignment.CenterVertically))
+                                            if (localNotebookUiState.sortType == SortType.CreateTime) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.padding(start = 8.dp)
+                                                )
+                                            }
                                         }
-                                    }
 
-                                },
-                                onClick = {
-                                    notebookViewModel.changeSortType(SortType.CreateTime)
-                                    notebookViewModel.sortBySortType()
-                                    showSortMenu = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+                                    },
+                                    onClick = {
+                                        notebookViewModel.changeSortType(SortType.CreateTime)
+                                        notebookViewModel.sortBySortType()
+                                        showSortMenu = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
 
-                        IconButton(onClick = { isSearchDialogOpen.value = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = "搜索"
-                            )
+                            IconButton(onClick = { isSearchDialogOpen.value = true }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Search,
+                                    contentDescription = "搜索"
+                                )
+                            }
                         }
-                    }
-                )
-            }
-        },
-        floatingActionButton = {
-            if (!isSelecting) {
-                FloatingActionButton(
-                    onClick = {
-                        // 处理全部笔记
-                        if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
-                            Log.d("add1", "localNotebookUiState.directoryID ${localNotebookUiState.directoryID}")
-                            Log.d("add1", "localDirectoryUiState.directoryList[0].id ${localDirectoryUiState.directoryList[0].id}")
-                            Log.d("add1", "localDirectoryUiState.directoryList[1].id ${localDirectoryUiState.directoryList[1].id}")
-                            notebookViewModel.insertNotebook("new", localDirectoryUiState.directoryList[1].id, localDirectoryUiState.directoryList)
-                        }
-                        else {
-                            notebookViewModel.insertNotebook("new")
-                        }
-                        var insertedID: Int = 0
-                        notebookViewModel.uiState.value.notebookList.forEach {
-                            insertedID = max(insertedID, it.id)
-                        }
-
-                        noteViewModel.initFirst(insertedID)
-                        navigateToEdit()
-                    },
-                    containerColor = MaterialTheme.colorScheme.secondary
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "新建",
                     )
                 }
-            }
-        },
-        bottomBar = {
-            if (showBottomSheet) {
-                ModalBottomSheet(
-                    onDismissRequest = {
-                        showBottomSheet = false
-                        isCreatingDirectory = false
-                    },
-                    sheetState = sheetState
-                ) {
-                    if (isCreatingDirectory) {
-                        CreateDirectorySheet(
-                            directories = localDirectoryUiState.directoryList,
-                            onCancel = {
-                                isCreatingDirectory = false
-                            },
-                            onSave = { name ->
-                                directoryViewModel.insertDirectory(name)
-                                isCreatingDirectory = false
-                            }
-                        )
-                    } else {
-                        BottomSheetContent(
-                            onClose = {
-                                scope.launch { sheetState.hide() }
-                                    .invokeOnCompletion { showBottomSheet = false }
-                            },
-                            onCreateDirectory = { isCreatingDirectory = true },
-                            onDirectoryClick = {
-                                id.intValue = it.id
-
-                                if(id.intValue == localDirectoryUiState.directoryList[0].id) {
-                                    notebookViewModel.init(id.intValue, localDirectoryUiState.directoryList)
-                                }
-                                else {
-                                    notebookViewModel.init(id.intValue)
-                                }
-                                Log.d("add1", "id ${localNotebookUiState.directoryID}")
-                            },
-                            directories = localDirectoryUiState.directoryList,
-                        )
-                    }
-                }
-
-            } else if (isSelecting && showMoveMenu) {
-                ModalBottomSheet(
-                    onDismissRequest = { showMoveMenu = false },
-                    sheetState = sheetState
-                ) {
-                    BottomSheetMoveContent(
-                        directories = localDirectoryUiState.directoryList,
-                        onCancel = { showMoveMenu = false },
-                        onConfirm = {
-//                            moveNotebooksToDirectory()
-                            showMoveMenu = false
-                            isSelecting = false
-                            selectedItems = emptySet()
+            },
+            floatingActionButton = {
+                if (!isSelecting) {
+                    FloatingActionButton(
+                        onClick = {
+                            // 处理全部笔记
                             if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
-                                notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
-                                id.intValue = localDirectoryUiState.directoryList[0].id
+                                Log.d("add1", "localNotebookUiState.directoryID ${localNotebookUiState.directoryID}")
+                                Log.d("add1", "localDirectoryUiState.directoryList[0].id ${localDirectoryUiState.directoryList[0].id}")
+                                Log.d("add1", "localDirectoryUiState.directoryList[1].id ${localDirectoryUiState.directoryList[1].id}")
+                                notebookViewModel.insertNotebook("new", localDirectoryUiState.directoryList[1].id, localDirectoryUiState.directoryList)
                             }
-                        },
-                        onDirectoryClick = { directory ->
-                            moveToDirectoryId = directory.id
-                        },
-                        selectedNotebooks = selectedItems,
-                        notebookViewModel = notebookViewModel
-                    )
-                }
-            } else {
-                BottomNavigationBar(
-                    selectedTab = selectedTab,
-                    isSelecting = isSelecting,
-                    onMove = { showMoveMenu = true },
-                    onDelete = {
-                        val sortedList = selectedItems.sortedDescending()
-                        sortedList.forEach {
-                            notebookViewModel.deleteNotebook(it)
-                            localNotebookUiState.notebookList.forEach {
+                            else {
+                                notebookViewModel.insertNotebook("new")
                             }
-                        }
+                            var insertedID: Int = 0
+                            notebookViewModel.uiState.value.notebookList.forEach {
+                                insertedID = max(insertedID, it.id)
+                            }
 
-                        // 清除选中的项目
-                        selectedItems = setOf()
-                        isSelecting = false
-                    },
-                    onNoteClick = {},
-                    onMyClick = navigateToMe
-                )
-            }
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-        ) {
-
-            localNotebookUiState.notebookList.reversed().forEachIndexed() { idx, notebookDetails ->
-                val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
-                val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
-                var noteFirstText = ""
-
-                if (noteFirst?.type == NoteType.Text) {
-                    noteFirstText = noteFirst.content
-                } else if (noteFirst?.type == NoteType.Photo) {
-                    noteFirstText = "图片"
-                } else if (noteFirst?.type == NoteType.Audio) {
-                    noteFirstText = "音频"
-                } else if (noteFirst?.type == NoteType.Video) {
-                    noteFirstText = "视频"
-                }
-
-                // Truncate title and subtext1 to 50 characters
-                val truncatedTitle = if ((noteTitle?.content?.length ?: 0) > 50) {
-                    noteTitle?.content?.substring(0, 50) + "..."
-                } else {
-                    noteTitle?.content ?: ""
-                }
-
-                val truncatedSubText1 = if (noteFirstText.length > 50) {
-                    noteFirstText.substring(0, 50) + "..."
-                } else {
-                    noteFirstText
-                }
-
-                val lastEditedTime = notebookDetails.changeTime // Assuming you have a field for last edited time
-
-                item {
-                    CustomListItem(
-                        text = truncatedTitle,
-                        subText1 = truncatedSubText1,
-                        subText2 = lastEditedTime, // Convert last edited time to a suitable string format
-                        isSelecting = isSelecting,
-                        isSelected = selectedItems.contains(localNotebookUiState.notebookList.size - 1 - idx),
-                        onSelect = { handleItemSelect(localNotebookUiState.notebookList.size - 1 - idx) },
-                        onLongPress = { handleLongPress(localNotebookUiState.notebookList.size - 1 - idx) },
-                        enterEditScreen = {
-                            noteViewModel.init(notebookDetails.id)
+                            noteViewModel.initFirst(insertedID)
                             navigateToEdit()
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "新建",
+                        )
+                    }
+                }
+            },
+            bottomBar = {
+                if (showBottomSheet) {
+                    AnimatedVisibility(
+                        visible = showBottomSheet,
+                        enter = slideInVertically(initialOffsetY = { it }),
+                        exit = slideOutVertically(targetOffsetY = { it })
+                    ) {
+                        ModalBottomSheet(
+                            onDismissRequest = {
+                                showBottomSheet = false
+                                isCreatingDirectory = false
+                            },
+                            sheetState = sheetState
+                        ) {
+                            if (isCreatingDirectory) {
+                                CreateDirectorySheet(
+                                    directories = localDirectoryUiState.directoryList,
+                                    onCancel = {
+                                        isCreatingDirectory = false
+                                    },
+                                    onSave = { name ->
+                                        directoryViewModel.insertDirectory(name)
+                                        isCreatingDirectory = false
+                                    }
+                                )
+                            } else {
+                                BottomSheetContent(
+                                    onClose = {
+                                        scope.launch { sheetState.hide() }
+                                            .invokeOnCompletion { showBottomSheet = false }
+                                    },
+                                    onCreateDirectory = { isCreatingDirectory = true },
+                                    onDirectoryClick = {
+                                        id.intValue = it.id
+                                        if(id.intValue == localDirectoryUiState.directoryList[0].id) {
+                                            notebookViewModel.init(id.intValue, localDirectoryUiState.directoryList)
+                                        } else {
+                                            notebookViewModel.init(id.intValue)
+                                        }
+                                        showBottomSheet = false
+                                    },
+                                    directories = localDirectoryUiState.directoryList,
+                                )
+                            }
                         }
+                    }
+                } else if (isSelecting && showMoveMenu) {
+                    AnimatedVisibility(
+                        visible = showMoveMenu,
+                        enter = slideInVertically(initialOffsetY = { it }),
+                        exit = slideOutVertically(targetOffsetY = { it })
+                    ) {
+                        ModalBottomSheet(
+                            onDismissRequest = { showMoveMenu = false },
+                            sheetState = sheetState
+                        ) {
+                            BottomSheetMoveContent(
+                                directories = localDirectoryUiState.directoryList,
+                                onCancel = { showMoveMenu = false },
+                                onConfirm = {
+//                            moveNotebooksToDirectory()
+//                                Log.d("why1", "confirm ${moveToDirectoryId}")
+                                    showMoveMenu = false
+                                    isSelecting = false
+                                    selectedItems = emptySet()
+                                    if(localNotebookUiState.directoryID == localDirectoryUiState.directoryList[0].id) {
+                                        notebookViewModel.init(localDirectoryUiState.directoryList[0].id, localDirectoryUiState.directoryList)
+                                        id.intValue = localDirectoryUiState.directoryList[0].id
+                                    }
+                                },
+                                onDirectoryClick = { directory ->
+                                    moveToDirectoryId = directory.id
+//                                Log.d("why1", "directory ${directory.id}")
+                                },
+                                selectedNotebooks = selectedItems,
+                                notebookViewModel = notebookViewModel
+                            )
+                        }
+                    }
+                } else {
+                    BottomNavigationBar(
+                        selectedTab = selectedTab,
+                        isSelecting = isSelecting,
+                        onMove = { showMoveMenu = true },
+                        onDelete = {
+                            val sortedList = selectedItems.sortedDescending()
+                            sortedList.forEach {
+                                notebookViewModel.deleteNotebook(it)
+                                localNotebookUiState.notebookList.forEach {
+                                }
+                            }
+                            selectedItems = setOf()
+                            isSelecting = false
+                        },
+                        onNoteClick = {},
+                        onMyClick = navigateToMe
                     )
                 }
             }
-            item {
-                Spacer(Modifier.height(16.dp))
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+            ) {
+
+                localNotebookUiState.notebookList.reversed().forEachIndexed() { idx, notebookDetails ->
+                    val noteTitle = notebookViewModel.getTitleNote(notebookDetails.id)
+                    val noteFirst = notebookViewModel.getFirstNote(notebookDetails.id)
+                    var noteFirstText = ""
+
+                    if (noteFirst?.type == NoteType.Text) {
+                        noteFirstText = noteFirst.content
+                    } else if (noteFirst?.type == NoteType.Photo) {
+                        noteFirstText = "图片"
+                    } else if (noteFirst?.type == NoteType.Audio) {
+                        noteFirstText = "音频"
+                    } else if (noteFirst?.type == NoteType.Video) {
+                        noteFirstText = "视频"
+                    }
+
+                    // Truncate title and subtext1 to 50 characters
+                    val truncatedTitle = if ((noteTitle?.content?.length ?: 0) > 50) {
+                        noteTitle?.content?.substring(0, 50) + "..."
+                    } else {
+                        noteTitle?.content ?: ""
+                    }
+
+                    val truncatedSubText1 = if (noteFirstText.length > 50) {
+                        noteFirstText.substring(0, 50) + "..."
+                    } else {
+                        noteFirstText
+                    }
+
+                    val lastEditedTime = notebookDetails.changeTime // Assuming you have a field for last edited time
+
+                    item {
+                        CustomListItem(
+                            text = truncatedTitle,
+                            subText1 = truncatedSubText1,
+                            subText2 = lastEditedTime, // Convert last edited time to a suitable string format
+                            isSelecting = isSelecting,
+                            isSelected = selectedItems.contains(localNotebookUiState.notebookList.size - 1 - idx),
+                            onSelect = { handleItemSelect(localNotebookUiState.notebookList.size - 1 - idx) },
+                            onLongPress = { handleLongPress(localNotebookUiState.notebookList.size - 1 - idx) },
+                            enterEditScreen = {
+                                noteViewModel.init(notebookDetails.id)
+                                navigateToEdit()
+                            }
+                        )
+                    }
+                }
+                item {
+                    Spacer(Modifier.height(16.dp))
+                }
             }
         }
-    }
     }
 
     MainSearchDialog(isDialogOpen = isSearchDialogOpen, onSearch = { query ->
@@ -692,7 +704,10 @@ fun BottomSheetContent(
             items(directories) { directory ->
                 Box(
                     modifier = Modifier
-                        .clickable { onDirectoryClick(directory) }
+                        .clickable {
+                            onDirectoryClick(directory)
+                            onClose() // Hide the bottom sheet with animation
+                        }
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
@@ -703,6 +718,7 @@ fun BottomSheetContent(
         }
     }
 }
+
 
 @Composable
 fun BottomSheetMoveContent(
@@ -732,12 +748,15 @@ fun BottomSheetMoveContent(
             )
             Spacer(modifier = Modifier.weight(1f))
             TextButton(onClick = {
-                // todo
-                selectedNotebooks.forEach {
-                    Log.d("add1", "listid ${it}")
-                    notebookViewModel.changeNotebookDirectory(it, directoryChosenID)
+                if(directoryChosenID != -1) {
+                    // Confirm and close
+                    selectedNotebooks.forEach {
+                        notebookViewModel.changeNotebookDirectory(it, directoryChosenID)
+                    }
+//                    Log.d("why1", "$directoryChosenID")
+                    onConfirm()
                 }
-                onConfirm()
+                onCancel() // Hide the bottom sheet with animation
             }, modifier = Modifier.weight(1f)) {
                 Text("确定")
             }
@@ -748,9 +767,9 @@ fun BottomSheetMoveContent(
                 Box(
                     modifier = Modifier
                         .clickable {
-                            // todo
                             directoryChosenID = directory.id
                             onDirectoryClick(directory)
+                            // onCancel() // Hide the bottom sheet with animation
                         }
                         .fillMaxWidth()
                         .padding(16.dp)
@@ -774,6 +793,7 @@ fun BottomSheetMoveContent(
         }
     }
 }
+
 
 @Composable
 fun CreateDirectorySheet(
@@ -833,7 +853,7 @@ fun SearchResultScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Search Results") },
+                title = { Text("搜索结果") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Back")
